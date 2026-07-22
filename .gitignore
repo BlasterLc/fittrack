@@ -1,0 +1,37 @@
+# Documentación de trabajo generada por superpowers — no se versiona
+docs/superpowers/
+
+# Entorno y secretos
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# Node / Expo
+node_modules/
+.expo/
+dist/
+web-build/
+*.tsbuildinfo
+
+# Datos y catálogo (se generan con scripts/ingest.py)
+*.db
+*.sqlite3
+data/exercises.json
+media/gifs/
+
+# Sistema operativo y editores
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/
