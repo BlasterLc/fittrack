@@ -9,8 +9,10 @@ from sqlalchemy.orm import sessionmaker
 # load_dotenv(), pero se importa más abajo y para entonces ya es tarde.
 load_dotenv()
 
-os.environ["APP_PASSWORD"] = "prueba"
 os.environ["DATABASE_URL"] = os.environ["TEST_DATABASE_URL"]
+os.environ.setdefault("SUPABASE_URL", "https://demo.supabase.co")
+os.environ.setdefault("SUPABASE_JWT_SECRET", "secreto-de-prueba")
+os.environ.setdefault("SUPABASE_STORAGE_BUCKET", "exercise-gifs")
 
 from api.database import Base, get_db  # noqa: E402  (debe importarse tras fijar el entorno)
 from api.main import app  # noqa: E402
@@ -48,6 +50,3 @@ def client(db_session):
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
-
-
-HEADERS = {"X-Password": "prueba"}
