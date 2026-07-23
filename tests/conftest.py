@@ -50,3 +50,27 @@ def client(db_session):
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def auth_headers():
+    """Devuelve un header Authorization con un JWT de Supabase de prueba.
+
+    Firma un token con el mismo secreto que usa `Config` en las pruebas.
+    Lo usan las pruebas de endpoints protegidos (catálogo, comida, etc.).
+    """
+    import datetime
+
+    import jwt
+
+    ahora = datetime.datetime.now(datetime.timezone.utc)
+    token = jwt.encode(
+        {
+            "sub": "11111111-1111-1111-1111-111111111111",
+            "aud": "authenticated",
+            "exp": ahora + datetime.timedelta(hours=1),
+        },
+        os.environ["SUPABASE_JWT_SECRET"],
+        algorithm="HS256",
+    )
+    return {"Authorization": f"Bearer {token}"}

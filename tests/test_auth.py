@@ -46,3 +46,14 @@ def test_me_con_token_expirado_da_401(client):
 def test_me_con_audiencia_incorrecta_da_401(client):
     otro = _token(aud="otra-cosa")
     assert client.get("/api/me", headers={"Authorization": f"Bearer {otro}"}).status_code == 401
+
+
+def test_salud_es_publica(client):
+    respuesta = client.get("/api/health")
+    assert respuesta.status_code == 200
+    assert respuesta.json() == {"estado": "ok"}
+
+
+def test_fixture_auth_headers_permite_entrar(client, auth_headers):
+    respuesta = client.get("/api/me", headers=auth_headers)
+    assert respuesta.status_code == 200
