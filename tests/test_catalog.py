@@ -123,3 +123,15 @@ def test_ficha_completa(client, catalogo, auth_headers):
 def test_ficha_inexistente_devuelve_404(client, catalogo, auth_headers):
     respuesta = client.get("/api/catalog/9999", headers=auth_headers)
     assert respuesta.status_code == 404
+
+
+def test_la_ficha_trae_la_url_de_la_animacion(client, catalogo, auth_headers):
+    """La app recibe la URL lista: no arma rutas de Storage por su cuenta."""
+    cuerpo = client.get("/api/catalog/0025", headers=auth_headers).json()
+    assert cuerpo["gif_url"].endswith("/exercise-gifs/0025-a.gif")
+    assert "/object/public/" in cuerpo["gif_url"]
+
+
+def test_la_busqueda_trae_la_url_de_la_animacion(client, catalogo, auth_headers):
+    cuerpo = client.get("/api/catalog/search?q=press", headers=auth_headers).json()
+    assert all(r["gif_url"].endswith(".gif") for r in cuerpo["resultados"])

@@ -1,4 +1,6 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
+
+from api.services import storage
 
 
 class EjercicioResumen(BaseModel):
@@ -12,6 +14,12 @@ class EjercicioResumen(BaseModel):
     gif_path: str
 
     model_config = {"from_attributes": True}
+
+    @computed_field
+    @property
+    def gif_url(self) -> str:
+        """URL lista para el componente de imagen de la app."""
+        return storage.url_publica(self.gif_path)
 
 
 class EjercicioFicha(EjercicioResumen):
