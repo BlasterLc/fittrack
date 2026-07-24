@@ -72,6 +72,44 @@ def test_requiere_autenticacion(client, catalogo):
     assert client.get("/api/catalog/search?q=press").status_code == 401
 
 
+def test_total_cuenta_todas_las_coincidencias_no_solo_la_pagina(
+    client, catalogo, auth_headers
+):
+    """`total` es cuántas hay, no cuántas caben en la página.
+
+    Sin esto la app muestra "50 resultados" sobre 294 y no hay forma de
+    saber que faltan.
+    """
+    respuesta = client.get(
+        "/api/catalog/search?body_part=Pecho&limite=1", headers=auth_headers
+    )
+    cuerpo = respuesta.json()
+    assert cuerpo["total"] == 2
+    assert len(cuerpo["resultados"]) == 1
+
+
+def test_limite_recorta_la_pagina(client, catalogo, auth_headers):
+    respuesta = client.get("/api/catalog/search?limite=2", headers=auth_headers)
+    cuerpo = respuesta.json()
+    assert cuerpo["total"] == 3
+    assert len(cuerpo["resultados"]) == 2
+
+
+def test_desplazamiento_avanza_sin_repetir(client, catalogo, auth_headers):
+    primera = client.get(
+        "/api/catalog/search?limite=2&desplazamiento=0", headers=auth_headers
+    ).json()
+    segunda = client.get(
+        "/api/catalog/search?limite=2&desplazamiento=2", headers=auth_headers
+    ).json()
+    assert len(primera["resultados"]) == 2
+    assert len(segunda["resultados"]) == 1
+    ids_primera = {r["id"] for r in primera["resultados"]}
+    ids_segunda = {r["id"] for r in segunda["resultados"]}
+    assert not (ids_primera & ids_segunda)
+    assert primera["total"] == segunda["total"] == 3
+
+
 def test_ficha_completa(client, catalogo, auth_headers):
     respuesta = client.get("/api/catalog/0025", headers=auth_headers)
     assert respuesta.status_code == 200

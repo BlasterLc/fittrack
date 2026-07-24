@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from api.auth import get_current_user
@@ -19,10 +19,20 @@ def buscar(
     q: str | None = None,
     body_part: str | None = None,
     equipment: str | None = None,
+    limite: int = Query(catalog.LIMITE_POR_DEFECTO, ge=1, le=catalog.LIMITE_MAXIMO),
+    desplazamiento: int = Query(0, ge=0),
     db: Session = Depends(get_db),
 ) -> ResultadoBusqueda:
-    encontrados = catalog.buscar(db, q=q, body_part=body_part, equipment=equipment)
-    return ResultadoBusqueda(total=len(encontrados), resultados=encontrados)
+    encontrados = catalog.buscar(
+        db,
+        q=q,
+        body_part=body_part,
+        equipment=equipment,
+        limite=limite,
+        desplazamiento=desplazamiento,
+    )
+    total = catalog.contar(db, q=q, body_part=body_part, equipment=equipment)
+    return ResultadoBusqueda(total=total, resultados=encontrados)
 
 
 @router.get("/{ejercicio_id}", response_model=EjercicioFicha)
