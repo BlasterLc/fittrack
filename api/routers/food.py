@@ -57,6 +57,20 @@ def registrar(
     return comida
 
 
+@router.delete("/{comida_id}", status_code=status.HTTP_204_NO_CONTENT)
+def eliminar(
+    comida_id: int,
+    user_id: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Response:
+    comida = db.get(Meal, comida_id)
+    if comida is None or comida.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Comida no encontrada")
+    db.delete(comida)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.get("", response_model=list[ComidaOut])
 def historial(
     desde: datetime,

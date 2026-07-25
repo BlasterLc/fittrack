@@ -113,3 +113,26 @@ def test_patch_comida_de_otro_da_404(client, auth_headers, db_session):
 
     r = client.patch(f"/api/food/{ajena.id}", json={"items": _ITEMS}, headers=auth_headers)
     assert r.status_code == 404
+
+
+def test_delete_borra_la_comida(client, auth_headers, db_session):
+    from api.models import Meal
+
+    creada = client.post("/api/food/log", json={"items": _ITEMS}, headers=auth_headers).json()
+
+    r = client.delete(f"/api/food/{creada['id']}", headers=auth_headers)
+    assert r.status_code == 204
+    assert db_session.get(Meal, creada["id"]) is None
+
+
+def test_delete_comida_de_otro_da_404(client, auth_headers, db_session):
+    from api.models import Meal, MealItem
+
+    ajena = Meal(user_id="otro-usuario")
+    ajena.items = [MealItem(nombre="X", calorias=1, prot_g=1, carbs_g=1, fat_g=1)]
+    db_session.add(ajena)
+    db_session.commit()
+
+    r = client.delete(f"/api/food/{ajena.id}", headers=auth_headers)
+    assert r.status_code == 404
+    assert db_session.get(Meal, ajena.id) is not None
