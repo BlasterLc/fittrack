@@ -1,11 +1,12 @@
 from fastapi import Depends, FastAPI
 
 from api.auth import get_current_user
-from api.routers import catalog, dashboard
+from api.routers import catalog, dashboard, food
 
 app = FastAPI(title="FitTrack API")
 app.include_router(catalog.router)
 app.include_router(dashboard.router)
+app.include_router(food.router)
 
 
 @app.get("/api/health")
