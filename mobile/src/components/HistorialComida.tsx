@@ -126,9 +126,7 @@ export function HistorialComida() {
                   style={[styles.barraFill, { width: `${Math.min(100, (d.kcal / meta) * 100)}%` }]}
                 />
               </View>
-              <Text style={styles.diaMacros}>
-                P {Math.round(d.prot)} · C {Math.round(d.carb)} · G {Math.round(d.fat)}
-              </Text>
+              <MacrosResumen prot={d.prot} carb={d.carb} fat={d.fat} />
             </Pressable>
 
             {abierto &&
@@ -186,6 +184,26 @@ export function HistorialComida() {
   );
 }
 
+function MacrosResumen({ prot, carb, fat }: { prot: number; carb: number; fat: number }) {
+  const [corto, setCorto] = useState(false);
+  const p = Math.round(prot);
+  const c = Math.round(carb);
+  const g = Math.round(fat);
+  const completo = `Proteína ${p} · Carbohidratos ${c} · Grasas ${g}`;
+  const resumido = `P ${p} · C ${c} · G ${g}`;
+  return (
+    <Text
+      style={styles.diaMacros}
+      onTextLayout={(e) => {
+        // Si la versión completa se parte en más de una línea, no cabe: pasa a P/C/G.
+        if (!corto && e.nativeEvent.lines.length > 1) setCorto(true);
+      }}
+    >
+      {corto ? resumido : completo}
+    </Text>
+  );
+}
+
 function HojaEditar({
   comida,
   onCerrar,
@@ -237,7 +255,9 @@ function HojaEditar({
             <TextInput style={styles.input} value={etiqueta} onChangeText={setEtiqueta} />
             <View style={styles.filaBotones}>
               <Pressable style={[styles.boton, styles.secundario]} onPress={onCerrar}>
-                <Text style={styles.botonTextoSec}>Cancelar</Text>
+                <Text style={styles.botonTextoSec} numberOfLines={1}>
+                  Cancelar
+                </Text>
               </Pressable>
               <Pressable
                 style={[styles.boton, styles.primario]}
@@ -247,7 +267,9 @@ function HojaEditar({
                 {editar.isPending ? (
                   <ActivityIndicator color={colors.ink} />
                 ) : (
-                  <Text style={styles.botonTexto}>Guardar cambios</Text>
+                  <Text style={styles.botonTexto} numberOfLines={1}>
+                    Guardar
+                  </Text>
                 )}
               </Pressable>
             </View>
