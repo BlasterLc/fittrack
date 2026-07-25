@@ -33,3 +33,31 @@ class EjercicioFicha(EjercicioResumen):
 class ResultadoBusqueda(BaseModel):
     total: int
     resultados: list[EjercicioResumen]
+
+
+class Calorias(BaseModel):
+    consumidas: int
+    meta: int
+
+
+class Macros(BaseModel):
+    prot: float
+    carb: float
+    fat: float
+
+
+class EntrenamientoResumen(BaseModel):
+    series: int
+    duracion_min: int
+
+
+class PesoResumen(BaseModel):
+    kg: float
+    fecha: str
+
+
+class ResumenDia(BaseModel):
+    calorias: Calorias
+    macros: Macros
+    entrenamiento: EntrenamientoResumen | None
+    peso: PesoResumen | None
