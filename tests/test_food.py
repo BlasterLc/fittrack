@@ -44,3 +44,40 @@ def test_log_persiste_la_comida(client, auth_headers, db_session):
     guardada = db_session.query(Meal).one()
     assert guardada.user_id == UUID_PRUEBA
     assert len(guardada.items) == 1
+
+
+def test_historial_filtra_por_rango_y_usuario(client, auth_headers, db_session):
+    import datetime as dt
+    from urllib.parse import quote
+
+    from api.models import Meal, MealItem
+
+    yo = "11111111-1111-1111-1111-111111111111"
+    ahora = dt.datetime.now(dt.timezone.utc)
+
+    def crear(user, dias_atras):
+        m = Meal(user_id=user, logged_at=ahora - dt.timedelta(days=dias_atras))
+        m.items = [MealItem(nombre="X", calorias=100, prot_g=1, carbs_g=2, fat_g=3)]
+        db_session.add(m)
+        db_session.commit()
+
+    crear(yo, 1)       # dentro del rango
+    crear(yo, 40)      # fuera del rango
+    crear("otro", 1)   # de otro usuario
+
+    desde = quote((ahora - dt.timedelta(days=7)).isoformat())
+    hasta = quote((ahora + dt.timedelta(days=1)).isoformat())
+    r = client.get(f"/api/food?desde={desde}&hasta={hasta}", headers=auth_headers)
+    assert r.status_code == 200
+    cuerpo = r.json()
+    assert len(cuerpo) == 1
+    assert cuerpo[0]["items"][0]["nombre"] == "X"
+
+
+def test_historial_sin_token_da_401(client):
+    import datetime as dt
+    from urllib.parse import quote
+
+    ahora = quote(dt.datetime.now(dt.timezone.utc).isoformat())
+    r = client.get(f"/api/food?desde={ahora}&hasta={ahora}")
+    assert r.status_code == 401

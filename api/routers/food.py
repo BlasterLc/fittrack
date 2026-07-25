@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from api.auth import get_current_user
@@ -54,3 +55,26 @@ def registrar(
     db.commit()
     db.refresh(comida)
     return comida
+
+
+@router.get("", response_model=list[ComidaOut])
+def historial(
+    desde: datetime,
+    hasta: datetime,
+    user_id: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[Meal]:
+    comidas = (
+        db.execute(
+            select(Meal)
+            .where(
+                Meal.user_id == user_id,
+                Meal.logged_at >= desde,
+                Meal.logged_at < hasta,
+            )
+            .order_by(Meal.logged_at.desc())
+        )
+        .scalars()
+        .all()
+    )
+    return list(comidas)
