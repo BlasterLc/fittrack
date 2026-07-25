@@ -20,3 +20,4 @@ class Config:
         self.supabase_storage_bucket = os.getenv("SUPABASE_STORAGE_BUCKET", "exercise-gifs")
         self.media_dir = os.getenv("MEDIA_DIR", "./media/gifs")
         self.anthropic_api_key = os.getenv("ANTHROPIC_API_KEY", "")
+        self.calorie_goal = int(os.getenv("CALORIE_GOAL", "2000"))

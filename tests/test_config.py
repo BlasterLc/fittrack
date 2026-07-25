@@ -26,3 +26,17 @@ def test_bucket_tiene_valor_por_defecto(monkeypatch):
     config = Config()
 
     assert config.supabase_storage_bucket == "exercise-gifs"
+
+
+def test_calorie_goal_por_defecto_2000(monkeypatch):
+    monkeypatch.delenv("CALORIE_GOAL", raising=False)
+    from api.config import Config
+
+    assert Config().calorie_goal == 2000
+
+
+def test_calorie_goal_lee_del_entorno(monkeypatch):
+    monkeypatch.setenv("CALORIE_GOAL", "2500")
+    from api.config import Config
+
+    assert Config().calorie_goal == 2500
