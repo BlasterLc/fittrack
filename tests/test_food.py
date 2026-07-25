@@ -81,3 +81,35 @@ def test_historial_sin_token_da_401(client):
     ahora = quote(dt.datetime.now(dt.timezone.utc).isoformat())
     r = client.get(f"/api/food?desde={ahora}&hasta={ahora}")
     assert r.status_code == 401
+
+
+def test_patch_reemplaza_items_y_etiqueta(client, auth_headers, db_session):
+    creada = client.post(
+        "/api/food/log", json={"items": _ITEMS, "etiqueta": "Desayuno"}, headers=auth_headers
+    ).json()
+
+    r = client.patch(
+        f"/api/food/{creada['id']}",
+        json={
+            "items": [{"nombre": "Nuevo", "calorias": 500, "prot_g": 1, "carbs_g": 2, "fat_g": 3}],
+            "etiqueta": "Cena",
+        },
+        headers=auth_headers,
+    )
+    assert r.status_code == 200
+    cuerpo = r.json()
+    assert cuerpo["etiqueta"] == "Cena"
+    assert len(cuerpo["items"]) == 1
+    assert cuerpo["items"][0]["nombre"] == "Nuevo"
+
+
+def test_patch_comida_de_otro_da_404(client, auth_headers, db_session):
+    from api.models import Meal, MealItem
+
+    ajena = Meal(user_id="otro-usuario")
+    ajena.items = [MealItem(nombre="X", calorias=1, prot_g=1, carbs_g=1, fat_g=1)]
+    db_session.add(ajena)
+    db_session.commit()
+
+    r = client.patch(f"/api/food/{ajena.id}", json={"items": _ITEMS}, headers=auth_headers)
+    assert r.status_code == 404
