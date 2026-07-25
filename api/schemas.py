@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, computed_field
 
 from api.services import storage
@@ -61,3 +63,38 @@ class ResumenDia(BaseModel):
     macros: Macros
     entrenamiento: EntrenamientoResumen | None
     peso: PesoResumen | None
+
+
+class ItemComida(BaseModel):
+    nombre: str
+    calorias: int
+    prot_g: float
+    carbs_g: float
+    fat_g: float
+
+
+class AnalizarComidaRequest(BaseModel):
+    texto: str | None = None
+    imagen_base64: str | None = None
+
+
+class AnalizarComidaResponse(BaseModel):
+    items: list[ItemComida]
+
+
+class RegistrarComidaRequest(BaseModel):
+    items: list[ItemComida]
+    etiqueta: str | None = None
+
+
+class ItemComidaOut(ItemComida):
+    id: int
+    model_config = {"from_attributes": True}
+
+
+class ComidaOut(BaseModel):
+    id: int
+    etiqueta: str | None
+    logged_at: datetime
+    items: list[ItemComidaOut]
+    model_config = {"from_attributes": True}
