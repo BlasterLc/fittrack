@@ -1,5 +1,5 @@
 from api.models import CatalogExercise
-from api.scripts.ingestar import construir_fila, ingestar
+from api.scripts.ingestar import construir_fila, desduplicar, ingestar
 
 FICHA = {
     "id": "0025",
@@ -55,9 +55,6 @@ def test_ingestar_actualiza_una_traduccion_corregida(db_session):
     assert guardado.nombre_es == "Press de banca con barra"
 
 
-from api.scripts.ingestar import desduplicar
-
-
 def _fila(id_, nombre_es, equipment="barbell", target="calves"):
     return {"id": id_, "nombre_es": nombre_es, "equipment": equipment, "target": target}
 
@@ -98,5 +95,13 @@ def test_desduplicar_deja_intacta_una_lista_sin_duplicados():
 
 
 def test_desduplicar_colapsa_un_grupo_de_tres():
-    filas = [_fila("1396", "Elevación de puntas"), _fila("0763", "Elevación de puntas"), _fila("1394", "Elevación de puntas")]
+    filas = [
+        _fila("1396", "Elevación de puntas"),
+        _fila("0763", "Elevación de puntas"),
+        _fila("1394", "Elevación de puntas"),
+    ]
     assert [f["id"] for f in desduplicar(filas)] == ["0763"]
+
+
+def test_desduplicar_con_lista_vacia_devuelve_lista_vacia():
+    assert desduplicar([]) == []
