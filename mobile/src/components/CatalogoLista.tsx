@@ -146,7 +146,8 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     fontSize: fontSize.sm,
     paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.sm,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
   },
   fila: {
     flexDirection: 'row',

@@ -127,7 +127,7 @@ function Chip({
 }
 
 const styles = StyleSheet.create({
-  contenedor: { paddingBottom: spacing.sm },
+  contenedor: { paddingBottom: spacing.md },
   filaEstado: { paddingHorizontal: spacing.xl, paddingVertical: spacing.xs },
   error: { color: colors.accent, fontFamily: fonts.regular, fontSize: fontSize.sm },
   fila: { paddingHorizontal: spacing.xl, gap: spacing.sm },
