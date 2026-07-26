@@ -45,7 +45,6 @@ export function FiltrosCatalogo({ grupo, equipo, onGrupo, onEquipo }: Props) {
           <Chip
             label={equipo ?? 'Equipamiento'}
             activo={Boolean(equipo)}
-            punteado={!equipo}
             sufijo="▾"
             onPress={() => setHojaAbierta(true)}
           />
@@ -74,7 +73,7 @@ export function FiltrosCatalogo({ grupo, equipo, onGrupo, onEquipo }: Props) {
               </Pressable>
             </View>
 
-            <ScrollView contentContainerStyle={styles.rejilla}>
+            <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={styles.rejilla}>
               <Chip
                 label="Todos"
                 activo={!equipo}
@@ -106,18 +105,16 @@ function Chip({
   label,
   activo,
   onPress,
-  punteado = false,
   sufijo,
 }: {
   label: string;
   activo: boolean;
   onPress: () => void;
-  punteado?: boolean;
   sufijo?: string;
 }) {
   return (
     <Pressable
-      style={[styles.chip, punteado && styles.chipPunteado, activo && styles.chipActivo]}
+      style={[styles.chip, activo && styles.chipActivo]}
       onPress={onPress}
       hitSlop={6}
     >
@@ -142,7 +139,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
   },
-  chipPunteado: { borderStyle: 'dashed' },
   chipActivo: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipTexto: { color: colors.muted, fontFamily: fonts.medium, fontSize: fontSize.sm },
   chipTextoActivo: { color: colors.ink, fontFamily: fonts.semibold },
