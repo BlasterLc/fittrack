@@ -144,11 +144,15 @@ def test_ingestar_elimina_las_fichas_que_ya_no_estan(db_session):
     assert db_session.query(CatalogExercise).count() == 1
     assert db_session.get(CatalogExercise, "0026") is None
 
+    superviviente = db_session.get(CatalogExercise, "0025")
+    assert superviviente.nombre_es == "Press de banca con barra"
+    assert superviviente.instrucciones_es == ["Primer paso.", "Segundo paso."]
+
 
 def test_ingestar_descarta_el_duplicado_y_conserva_el_id_mas_bajo(db_session):
-    total = ingestar(db_session, [FICHA, GEMELA], TRADUCCIONES_GEMELAS)
+    resultado = ingestar(db_session, [FICHA, GEMELA], TRADUCCIONES_GEMELAS)
 
-    assert total == 1
+    assert resultado.total == 1
     assert db_session.query(CatalogExercise).count() == 1
     assert db_session.get(CatalogExercise, "0025") is not None
     assert db_session.get(CatalogExercise, "0099") is None
@@ -157,5 +161,8 @@ def test_ingestar_descarta_el_duplicado_y_conserva_el_id_mas_bajo(db_session):
 def test_ingestar_con_lista_vacia_deja_la_tabla_vacia(db_session):
     ingestar(db_session, [FICHA], {"barbell bench press": "Press de banca con barra"})
 
-    assert ingestar(db_session, [], {}) == 0
+    resultado = ingestar(db_session, [], {})
+
+    assert resultado.total == 0
+    assert resultado.borradas == 1
     assert db_session.query(CatalogExercise).count() == 0

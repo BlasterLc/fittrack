@@ -10,6 +10,7 @@ corregidas a mano y borra lo que ya no está en el dataset de origen.
 import json
 import sys
 from pathlib import Path
+from typing import NamedTuple
 
 from sqlalchemy import delete
 from sqlalchemy.dialects.postgresql import insert
@@ -69,7 +70,25 @@ def desduplicar(filas: list[dict]) -> list[dict]:
     return sorted(por_clave.values(), key=lambda f: f["id"])
 
 
-def ingestar(sesion: Session, fichas: list[dict], traducciones: dict[str, str]) -> int:
+def preparar_filas(fichas: list[dict], traducciones: dict[str, str]) -> list[dict]:
+    """Filas construidas y desduplicadas, antes de tocar la base.
+
+    Separada de `ingestar()` para que `main()` pueda saber cuántas filas
+    va a dejar la corrida *antes* de ejecutarla — la red de seguridad
+    necesita ese número para decidir si aborta, sin duplicar la lógica
+    de construcción y desduplicado.
+    """
+    return desduplicar([construir_fila(f, traducciones) for f in fichas])
+
+
+class ResultadoIngesta(NamedTuple):
+    total: int
+    borradas: int
+
+
+def ingestar(
+    sesion: Session, fichas: list[dict], traducciones: dict[str, str]
+) -> ResultadoIngesta:
     """Deja la tabla igual al dataset: inserta, actualiza y elimina.
 
     Es convergente, no solo idempotente: las filas que están en la base
@@ -77,7 +96,7 @@ def ingestar(sesion: Session, fichas: list[dict], traducciones: dict[str, str]) 
     borran. Sin eso, desduplicar no tendría efecto sobre una base que ya
     fue cargada.
     """
-    filas = desduplicar([construir_fila(f, traducciones) for f in fichas])
+    filas = preparar_filas(fichas, traducciones)
 
     for fila in filas:
         sentencia = insert(CatalogExercise).values(**fila)
@@ -90,11 +109,14 @@ def ingestar(sesion: Session, fichas: list[dict], traducciones: dict[str, str]) 
     ids = [f["id"] for f in filas]
     sobrantes = delete(CatalogExercise)
     if ids:
+        # Redundante en Postgres (not_in([]) ya borra todo), pero deja
+        # explícito el caso más peligroso: sin filas que conservar, se
+        # vacía la tabla.
         sobrantes = sobrantes.where(CatalogExercise.id.not_in(ids))
-    sesion.execute(sobrantes)
+    resultado = sesion.execute(sobrantes)
 
     sesion.commit()
-    return len(filas)
+    return ResultadoIngesta(total=len(filas), borradas=resultado.rowcount)
 
 
 def main() -> int:
@@ -106,9 +128,25 @@ def main() -> int:
 
     Base.metadata.create_all(bind=get_engine())
 
+    forzar = "--forzar" in sys.argv
+
     with Session(get_engine()) as sesion:
-        total = ingestar(sesion, fichas, traducciones)
-        print(f"Ingeridas {total} fichas")
+        existentes = sesion.query(CatalogExercise).count()
+        filas_previstas = preparar_filas(fichas, traducciones)
+
+        # Un exercises.json corrupto o truncado ya no queda sin efecto: la
+        # ingesta ahora borra lo que sobra, así que una reducción grande e
+        # inesperada podría vaciar producción. Si es intencional, se fuerza.
+        if existentes and len(filas_previstas) < existentes * 0.9 and not forzar:
+            print(
+                f"Abortado: la ingesta dejaría {len(filas_previstas)} fichas, "
+                f"hay {existentes} en la base — es una reducción sospechosa. "
+                "Si es intencional, corré de nuevo con --forzar."
+            )
+            return 1
+
+        resultado = ingestar(sesion, fichas, traducciones)
+        print(f"Ingeridas {resultado.total} fichas · {resultado.borradas} borradas")
         sin_traducir = sesion.query(CatalogExercise).filter(
             CatalogExercise.nombre_es == CatalogExercise.nombre_en
         ).count()
