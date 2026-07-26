@@ -45,6 +45,29 @@ def construir_fila(ficha: dict, traducciones: dict[str, str]) -> dict:
     }
 
 
+def desduplicar(filas: list[dict]) -> list[dict]:
+    """Deja una sola fila por (nombre_es, equipment, target).
+
+    El dataset de origen repite 11 ejercicios (23 fichas en total) con
+    nombres distintos en inglés que traducen al mismo nombre en español,
+    o directamente con el mismo nombre en inglés. Comparten equipamiento y
+    músculo objetivo: son el mismo movimiento grabado dos veces.
+
+    Se compara por los tres campos y no solo por el nombre: si una
+    traducción futura hiciera colisionar dos ejercicios genuinamente
+    distintos, no deben fusionarse — eso es un bug de traducción y se
+    corrige en `nombres_es.json`.
+
+    Se conserva la ficha de id más bajo, que es determinista y no depende
+    del orden del JSON de origen.
+    """
+    por_clave: dict[tuple[str, str, str], dict] = {}
+    for fila in sorted(filas, key=lambda f: f["id"]):
+        clave = (fila["nombre_es"], fila["equipment"], fila["target"])
+        por_clave.setdefault(clave, fila)
+    return sorted(por_clave.values(), key=lambda f: f["id"])
+
+
 def ingestar(sesion: Session, fichas: list[dict], traducciones: dict[str, str]) -> int:
     filas = [construir_fila(f, traducciones) for f in fichas]
     for fila in filas:

@@ -53,3 +53,50 @@ def test_ingestar_actualiza_una_traduccion_corregida(db_session):
 
     guardado = db_session.get(CatalogExercise, "0025")
     assert guardado.nombre_es == "Press de banca con barra"
+
+
+from api.scripts.ingestar import desduplicar
+
+
+def _fila(id_, nombre_es, equipment="barbell", target="calves"):
+    return {"id": id_, "nombre_es": nombre_es, "equipment": equipment, "target": target}
+
+
+def test_desduplicar_conserva_el_id_mas_bajo():
+    filas = [
+        _fila("1371", "Elevación de talones sentado con barra"),
+        _fila("0088", "Elevación de talones sentado con barra"),
+    ]
+    assert [f["id"] for f in desduplicar(filas)] == ["0088"]
+
+
+def test_desduplicar_ignora_el_orden_de_entrada():
+    a = [_fila("0088", "Elevación"), _fila("1371", "Elevación")]
+    b = [_fila("1371", "Elevación"), _fila("0088", "Elevación")]
+    assert desduplicar(a) == desduplicar(b)
+
+
+def test_desduplicar_no_fusiona_si_cambia_el_equipamiento():
+    filas = [
+        _fila("0001", "Remo inclinado", equipment="barbell"),
+        _fila("0002", "Remo inclinado", equipment="dumbbell"),
+    ]
+    assert [f["id"] for f in desduplicar(filas)] == ["0001", "0002"]
+
+
+def test_desduplicar_no_fusiona_si_cambia_el_musculo_objetivo():
+    filas = [
+        _fila("0001", "Remo inclinado", target="upper back"),
+        _fila("0002", "Remo inclinado", target="lats"),
+    ]
+    assert [f["id"] for f in desduplicar(filas)] == ["0001", "0002"]
+
+
+def test_desduplicar_deja_intacta_una_lista_sin_duplicados():
+    filas = [_fila("0001", "Sentadilla"), _fila("0002", "Press militar")]
+    assert desduplicar(filas) == filas
+
+
+def test_desduplicar_colapsa_un_grupo_de_tres():
+    filas = [_fila("1396", "Elevación de puntas"), _fila("0763", "Elevación de puntas"), _fila("1394", "Elevación de puntas")]
+    assert [f["id"] for f in desduplicar(filas)] == ["0763"]
