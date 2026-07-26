@@ -67,3 +67,23 @@ def contar(
         select(func.count()).select_from(CatalogExercise), q, body_part, equipment
     )
     return sesion.execute(consulta).scalar_one()
+
+
+def filtros(sesion: Session) -> dict[str, list[str]]:
+    """Valores disponibles para filtrar, sacados de los propios datos.
+
+    Salen de la base y no de una lista escrita a mano: así la app nunca
+    ofrece un filtro que devuelve cero resultados, y si cambia el dataset
+    los filtros se actualizan solos.
+    """
+    grupos = sesion.execute(
+        select(CatalogExercise.body_part_es)
+        .distinct()
+        .order_by(CatalogExercise.body_part_es)
+    ).scalars()
+    equipos = sesion.execute(
+        select(CatalogExercise.equipment_es)
+        .distinct()
+        .order_by(CatalogExercise.equipment_es)
+    ).scalars()
+    return {"grupos_musculares": list(grupos), "equipamientos": list(equipos)}

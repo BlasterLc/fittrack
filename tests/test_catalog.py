@@ -1,6 +1,7 @@
 import pytest
 
 from api.scripts.ingestar import ingestar
+from api.services.catalog import filtros
 
 FICHAS = [
     {
@@ -135,3 +136,16 @@ def test_la_ficha_trae_la_url_de_la_animacion(client, catalogo, auth_headers):
 def test_la_busqueda_trae_la_url_de_la_animacion(client, catalogo, auth_headers):
     cuerpo = client.get("/api/catalog/search?q=press", headers=auth_headers).json()
     assert all(r["gif_url"].endswith(".gif") for r in cuerpo["resultados"])
+
+
+def test_filtros_devuelve_valores_distintos_y_ordenados(catalogo):
+    resultado = filtros(catalogo)
+
+    # Dos fichas son de Pecho y una de Piernas: el valor repetido aparece
+    # una sola vez, y las tres comparten equipamiento.
+    assert resultado["grupos_musculares"] == ["Pecho", "Piernas"]
+    assert resultado["equipamientos"] == ["Barra"]
+
+
+def test_filtros_con_la_base_vacia_devuelve_listas_vacias(db_session):
+    assert filtros(db_session) == {"grupos_musculares": [], "equipamientos": []}
