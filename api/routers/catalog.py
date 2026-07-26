@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from api.auth import get_current_user
 from api.database import get_db
 from api.models import CatalogExercise
-from api.schemas import EjercicioFicha, ResultadoBusqueda
+from api.schemas import EjercicioFicha, FiltrosDisponibles, ResultadoBusqueda
 from api.services import catalog
 
 router = APIRouter(
@@ -33,6 +33,13 @@ def buscar(
     )
     total = catalog.contar(db, q=q, body_part=body_part, equipment=equipment)
     return ResultadoBusqueda(total=total, resultados=encontrados)
+
+
+# Debe quedar declarada ANTES de /{ejercicio_id}: si no, FastAPI la toma
+# como una ficha con id "filtros" y responde 404.
+@router.get("/filtros", response_model=FiltrosDisponibles)
+def filtros_disponibles(db: Session = Depends(get_db)) -> FiltrosDisponibles:
+    return FiltrosDisponibles(**catalog.filtros(db))
 
 
 @router.get("/{ejercicio_id}", response_model=EjercicioFicha)

@@ -37,6 +37,13 @@ class ResultadoBusqueda(BaseModel):
     resultados: list[EjercicioResumen]
 
 
+class FiltrosDisponibles(BaseModel):
+    """Valores que la app ofrece en los controles de filtro del catálogo."""
+
+    grupos_musculares: list[str]
+    equipamientos: list[str]
+
+
 class Calorias(BaseModel):
     consumidas: int
     meta: int

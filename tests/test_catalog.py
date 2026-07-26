@@ -149,3 +149,29 @@ def test_filtros_devuelve_valores_distintos_y_ordenados(catalogo):
 
 def test_filtros_con_la_base_vacia_devuelve_listas_vacias(db_session):
     assert filtros(db_session) == {"grupos_musculares": [], "equipamientos": []}
+
+
+def test_endpoint_filtros_devuelve_las_dos_listas(client, catalogo, auth_headers):
+    r = client.get("/api/catalog/filtros", headers=auth_headers)
+
+    assert r.status_code == 200
+    assert r.json() == {
+        "grupos_musculares": ["Pecho", "Piernas"],
+        "equipamientos": ["Barra"],
+    }
+
+
+def test_endpoint_filtros_exige_token(client):
+    assert client.get("/api/catalog/filtros").status_code == 401
+
+
+def test_filtros_no_cae_en_el_handler_de_ficha(client, auth_headers):
+    """Con la base vacía, /filtros debe dar 200 y no 404.
+
+    Si la ruta se declarara después de /{ejercicio_id}, FastAPI la
+    tomaría como una ficha con id "filtros" y respondería 404.
+    """
+    r = client.get("/api/catalog/filtros", headers=auth_headers)
+
+    assert r.status_code == 200
+    assert r.json() == {"grupos_musculares": [], "equipamientos": []}
