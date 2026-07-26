@@ -119,6 +119,22 @@ def ingestar(
     return ResultadoIngesta(total=len(filas), borradas=resultado.rowcount)
 
 
+def reduccion_sospechosa(previstas: int, existentes: int, margen: float = 0.9) -> bool:
+    """Decide si una corrida dejaría muy pocas filas como para ser confiable.
+
+    El margen no es 1.0 porque una reducción chica es normal y esperada:
+    desduplicar ya recorta filas que estaban de más (en esta fase, de 1324
+    a 1312, un 99%). El margen deja pasar eso y solo dispara ante una caída
+    grande, que es la señal de un `exercises.json` corrupto o truncado —
+    el caso que esta función existe para frenar antes del `DELETE`.
+
+    Una base vacía (`existentes == 0`) nunca es sospechosa: es la primera
+    carga, no hay nada contra qué comparar, y bloquearla dejaría la app
+    sin poder arrancar nunca.
+    """
+    return existentes > 0 and previstas < existentes * margen
+
+
 def main() -> int:
     fichas = json.loads(FICHAS.read_text())
     traducciones = json.loads(NOMBRES.read_text()) if NOMBRES.exists() else {}
@@ -137,7 +153,7 @@ def main() -> int:
         # Un exercises.json corrupto o truncado ya no queda sin efecto: la
         # ingesta ahora borra lo que sobra, así que una reducción grande e
         # inesperada podría vaciar producción. Si es intencional, se fuerza.
-        if existentes and len(filas_previstas) < existentes * 0.9 and not forzar:
+        if reduccion_sospechosa(len(filas_previstas), existentes) and not forzar:
             print(
                 f"Abortado: la ingesta dejaría {len(filas_previstas)} fichas, "
                 f"hay {existentes} en la base — es una reducción sospechosa. "

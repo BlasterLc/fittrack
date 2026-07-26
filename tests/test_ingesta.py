@@ -1,5 +1,10 @@
 from api.models import CatalogExercise
-from api.scripts.ingestar import construir_fila, desduplicar, ingestar
+from api.scripts.ingestar import (
+    construir_fila,
+    desduplicar,
+    ingestar,
+    reduccion_sospechosa,
+)
 
 FICHA = {
     "id": "0025",
@@ -166,3 +171,19 @@ def test_ingestar_con_lista_vacia_deja_la_tabla_vacia(db_session):
     assert resultado.total == 0
     assert resultado.borradas == 1
     assert db_session.query(CatalogExercise).count() == 0
+
+
+def test_reduccion_no_sospechosa_en_base_vacia():
+    assert reduccion_sospechosa(0, 0) is False
+
+
+def test_reduccion_no_sospechosa_en_la_corrida_real_de_esta_fase():
+    assert reduccion_sospechosa(1312, 1324) is False
+
+
+def test_reduccion_sospechosa_si_el_dataset_llega_vacio():
+    assert reduccion_sospechosa(0, 1324) is True
+
+
+def test_reduccion_no_sospechosa_justo_en_el_borde_del_margen():
+    assert reduccion_sospechosa(90, 100) is False
