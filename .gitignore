@@ -1,5 +1,6 @@
 # Documentación de trabajo generada por superpowers — no se versiona
 docs/superpowers/
+.superpowers/
 
 # Entorno y secretos
 .env
