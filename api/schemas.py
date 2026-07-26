@@ -27,7 +27,7 @@ class EjercicioResumen(BaseModel):
 class EjercicioFicha(EjercicioResumen):
     """Ficha completa, con técnica y músculos secundarios."""
 
-    secondary_muscles: list[str]
+    secondary_muscles_es: list[str]
     instrucciones_es: list[str]
     atribucion: str
 

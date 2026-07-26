@@ -27,6 +27,7 @@ class CatalogExercise(Base):
     target_es: Mapped[str] = mapped_column(String(40), nullable=False)
 
     secondary_muscles: Mapped[list[str]] = mapped_column(ARRAY(String(40)), default=list)
+    secondary_muscles_es: Mapped[list[str]] = mapped_column(ARRAY(String(40)), default=list)
     instrucciones_es: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
 
     # Ruta o URL pública del GIF en Supabase Storage (bucket exercise-gifs).

@@ -1,10 +1,11 @@
-from api.scripts.mapeos import BODY_PART, EQUIPMENT, TARGET, traducir
+from api.scripts.mapeos import BODY_PART, EQUIPMENT, SECONDARY, TARGET, traducir
 
 
 def test_traduce_valores_conocidos():
     assert traducir(BODY_PART, "chest") == "Pecho"
     assert traducir(EQUIPMENT, "barbell") == "Barra"
     assert traducir(TARGET, "pectorals") == "Pectorales"
+    assert traducir(SECONDARY, "rotator cuff") == "Manguito rotador"
 
 
 def test_valor_desconocido_se_devuelve_capitalizado():
@@ -32,6 +33,19 @@ OBJETIVOS = {
     "lats", "levator scapulae", "pectorals", "quads", "serratus anterior",
     "spine", "traps", "triceps", "upper back",
 }
+# Vocabulario propio: el dataset nombra los secundarios con otras palabras que
+# los objetivos ("quadriceps" y no "quads", "trapezius" y no "traps"), así que
+# no alcanza con reusar TARGET. Las dos formas traducen al mismo término.
+SECUNDARIOS = {
+    "abdominals", "ankle stabilizers", "ankles", "back", "biceps",
+    "brachialis", "calves", "chest", "core", "deltoids", "feet", "forearms",
+    "glutes", "grip muscles", "groin", "hamstrings", "hands", "hip flexors",
+    "inner thighs", "latissimus dorsi", "lats", "lower abs", "lower back",
+    "obliques", "quadriceps", "rear deltoids", "rhomboids", "rotator cuff",
+    "shins", "shoulders", "soleus", "sternocleidomastoid", "trapezius",
+    "traps", "triceps", "upper back", "upper chest", "wrist extensors",
+    "wrist flexors", "wrists",
+}
 
 
 def test_cubre_todas_las_partes_del_cuerpo():
@@ -46,11 +60,31 @@ def test_cubre_todos_los_musculos_objetivo():
     assert OBJETIVOS <= set(TARGET), OBJETIVOS - set(TARGET)
 
 
+def test_cubre_todos_los_musculos_secundarios():
+    assert SECUNDARIOS <= set(SECONDARY), SECUNDARIOS - set(SECONDARY)
+
+
+def test_las_dos_formas_de_un_musculo_traducen_igual():
+    """El dataset nombra el mismo músculo distinto según el campo.
+
+    Si "quads" y "quadriceps" cayeran en términos distintos, la ficha diría
+    una cosa como objetivo y otra como secundario para el mismo músculo.
+    """
+    for objetivo, secundario in [
+        ("quads", "quadriceps"),
+        ("traps", "trapezius"),
+        ("delts", "deltoids"),
+        ("lats", "lats"),
+        ("upper back", "upper back"),
+    ]:
+        assert traducir(TARGET, objetivo) == traducir(SECONDARY, secundario), objetivo
+
+
 def test_ninguna_traduccion_deja_el_ingles():
     """Una entrada que solo capitaliza el inglés es un hueco disfrazado."""
     iguales = [
         (k, v)
-        for tabla in (BODY_PART, EQUIPMENT, TARGET)
+        for tabla in (BODY_PART, EQUIPMENT, TARGET, SECONDARY)
         for k, v in tabla.items()
         if k.lower() == v.lower() and k != "cardio"
     ]
@@ -70,3 +104,4 @@ def test_el_dataset_no_trae_categorias_nuevas():
     assert {f["body_part"] for f in fichas} <= PARTES
     assert {f["equipment"] for f in fichas} <= EQUIPOS
     assert {f["target"] for f in fichas} <= OBJETIVOS
+    assert {m for f in fichas for m in (f.get("secondary_muscles") or [])} <= SECUNDARIOS

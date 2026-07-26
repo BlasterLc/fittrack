@@ -12,7 +12,7 @@ export type EjercicioResumen = {
 };
 
 export type EjercicioFicha = EjercicioResumen & {
-  secondary_muscles: string[];
+  secondary_muscles_es: string[];
   instrucciones_es: string[];
   atribucion: string;
 };

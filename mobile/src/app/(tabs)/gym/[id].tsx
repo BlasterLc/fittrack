@@ -48,7 +48,7 @@ export default function Ficha() {
           <Dato etiqueta="Músculo objetivo" valor={ficha.data.target_es} />
           <Dato
             etiqueta="Secundarios"
-            valor={ficha.data.secondary_muscles.join(' · ') || '—'}
+            valor={ficha.data.secondary_muscles_es.join(' · ') || '—'}
           />
           {/* Sale de workout_sets, que existe recién en la Fase 6. */}
           <Dato etiqueta="Récord personal" valor="Sin registros todavía" atenuado />

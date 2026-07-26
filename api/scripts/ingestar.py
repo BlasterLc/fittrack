@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from api.database import get_engine
 from api.models import CatalogExercise
-from api.scripts.mapeos import BODY_PART, EQUIPMENT, TARGET, traducir
+from api.scripts.mapeos import BODY_PART, EQUIPMENT, SECONDARY, TARGET, traducir
 from api.services.catalog import normalizar
 
 ATRIBUCION = "© Gym visual — gymvisual.com"
@@ -29,6 +29,7 @@ NOMBRES = Path("data/nombres_es.json")
 def construir_fila(ficha: dict, traducciones: dict[str, str]) -> dict:
     nombre_en = ficha["name"]
     nombre_es = traducciones.get(nombre_en, nombre_en)
+    secundarios = ficha.get("secondary_muscles") or []
     return {
         "id": ficha["id"],
         "nombre_en": nombre_en,
@@ -40,7 +41,8 @@ def construir_fila(ficha: dict, traducciones: dict[str, str]) -> dict:
         "equipment_es": traducir(EQUIPMENT, ficha.get("equipment", "")),
         "target": ficha.get("target", ""),
         "target_es": traducir(TARGET, ficha.get("target", "")),
-        "secondary_muscles": ficha.get("secondary_muscles") or [],
+        "secondary_muscles": secundarios,
+        "secondary_muscles_es": [traducir(SECONDARY, m) for m in secundarios],
         "instrucciones_es": (ficha.get("instruction_steps") or {}).get("es") or [],
         "gif_path": Path(ficha.get("gif_url", "")).name,
         "atribucion": ATRIBUCION,

@@ -60,8 +60,23 @@ def test_construir_fila_traduce_y_normaliza():
     assert fila["body_part_es"] == "Pecho"
     assert fila["equipment_es"] == "Barra"
     assert fila["target_es"] == "Pectorales"
+    assert fila["secondary_muscles"] == ["triceps", "shoulders"]
+    assert fila["secondary_muscles_es"] == ["Tríceps", "Hombros"]
     assert fila["gif_path"] == "0025-EIeI8Vf.gif"
     assert "Gym visual" in fila["atribucion"]
+
+
+def test_secundarios_conservan_el_orden_del_dataset():
+    """El dataset los lista del más al menos involucrado; no se reordenan."""
+    ficha = {**FICHA, "secondary_muscles": ["rotator cuff", "core", "brachialis"]}
+    fila = construir_fila(ficha, {})
+    assert fila["secondary_muscles_es"] == ["Manguito rotador", "Zona media", "Braquial"]
+
+
+def test_ficha_sin_secundarios_no_rompe():
+    fila = construir_fila({**FICHA, "secondary_muscles": None}, {})
+    assert fila["secondary_muscles"] == []
+    assert fila["secondary_muscles_es"] == []
 
 
 def test_sin_traduccion_usa_el_nombre_en_ingles():

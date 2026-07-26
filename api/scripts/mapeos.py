@@ -71,6 +71,54 @@ TARGET = {
 }
 
 
+# Los secundarios traen su propio vocabulario, más anatómico que el de TARGET:
+# el mismo músculo aparece como "quads" en un campo y "quadriceps" en el otro.
+# Las dos formas apuntan al mismo término en español a propósito.
+SECONDARY = {
+    "abdominals": "Abdominales",
+    "ankle stabilizers": "Estabilizadores del tobillo",
+    "ankles": "Tobillos",
+    "back": "Espalda",
+    "biceps": "Bíceps",
+    "brachialis": "Braquial",
+    "calves": "Pantorrillas",
+    "chest": "Pecho",
+    # "Core" se entiende, pero deja el inglés dentro de una ficha en español.
+    "core": "Zona media",
+    "deltoids": "Deltoides",
+    "feet": "Pies",
+    "forearms": "Antebrazos",
+    "glutes": "Glúteos",
+    "grip muscles": "Músculos de agarre",
+    "groin": "Ingle",
+    "hamstrings": "Isquiotibiales",
+    "hands": "Manos",
+    "hip flexors": "Flexores de cadera",
+    "inner thighs": "Aductores",
+    "latissimus dorsi": "Dorsal ancho",
+    "lats": "Dorsales",
+    "lower abs": "Abdominales inferiores",
+    "lower back": "Espalda baja",
+    "obliques": "Oblicuos",
+    "quadriceps": "Cuádriceps",
+    "rear deltoids": "Deltoides posteriores",
+    "rhomboids": "Romboides",
+    "rotator cuff": "Manguito rotador",
+    "shins": "Tibiales",
+    "shoulders": "Hombros",
+    "soleus": "Sóleo",
+    "sternocleidomastoid": "Esternocleidomastoideo",
+    "trapezius": "Trapecios",
+    "traps": "Trapecios",
+    "triceps": "Tríceps",
+    "upper back": "Espalda alta",
+    "upper chest": "Pecho superior",
+    "wrist extensors": "Extensores de muñeca",
+    "wrist flexors": "Flexores de muñeca",
+    "wrists": "Muñecas",
+}
+
+
 def traducir(tabla: dict[str, str], valor: str) -> str:
     """Devuelve la traducción, o el valor capitalizado si no está en la tabla.
 
