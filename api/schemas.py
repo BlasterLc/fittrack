@@ -38,10 +38,17 @@ class ResultadoBusqueda(BaseModel):
 
 
 class FiltrosDisponibles(BaseModel):
-    """Valores que la app ofrece en los controles de filtro del catálogo."""
+    """Valores que la app ofrece en los controles de filtro del catálogo.
+
+    Las listas completas son los chips que se dibujan; las `_disponibles`
+    son los que siguen dando resultados con los filtros ya activos. El
+    resto se atenúa en vez de desaparecer, para que la fila no salte.
+    """
 
     grupos_musculares: list[str]
     equipamientos: list[str]
+    grupos_disponibles: list[str]
+    equipamientos_disponibles: list[str]
 
 
 class Calorias(BaseModel):

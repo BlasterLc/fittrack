@@ -148,7 +148,12 @@ def test_filtros_devuelve_valores_distintos_y_ordenados(catalogo):
 
 
 def test_filtros_con_la_base_vacia_devuelve_listas_vacias(db_session):
-    assert filtros(db_session) == {"grupos_musculares": [], "equipamientos": []}
+    assert filtros(db_session) == {
+        "grupos_musculares": [],
+        "equipamientos": [],
+        "grupos_disponibles": [],
+        "equipamientos_disponibles": [],
+    }
 
 
 def test_endpoint_filtros_devuelve_las_dos_listas(client, catalogo, auth_headers):
@@ -158,7 +163,96 @@ def test_endpoint_filtros_devuelve_las_dos_listas(client, catalogo, auth_headers
     assert r.json() == {
         "grupos_musculares": ["Pecho", "Piernas"],
         "equipamientos": ["Barra"],
+        "grupos_disponibles": ["Pecho", "Piernas"],
+        "equipamientos_disponibles": ["Barra"],
     }
+
+
+# --- Filtros combinados que dan cero -----------------------------------
+# El dataset real tiene equipamientos que solo existen en algunos grupos
+# musculares: "balón bosu" está en Pecho y Piernas, pero no en Espalda.
+# Combinar Espalda + bosu daba cero resultados sin ninguna señal previa.
+
+ASIMETRICAS = [
+    {
+        "id": "1001", "name": "bosu ball push up", "body_part": "chest",
+        "equipment": "bosu ball", "target": "pectorals",
+        "secondary_muscles": [], "gif_url": "videos/1001-a.gif",
+        "instruction_steps": {"es": ["Paso uno."]},
+    },
+    {
+        "id": "1002", "name": "barbell row", "body_part": "back",
+        "equipment": "barbell", "target": "lats",
+        "secondary_muscles": [], "gif_url": "videos/1002-b.gif",
+        "instruction_steps": {"es": ["Paso uno."]},
+    },
+    {
+        "id": "1003", "name": "barbell bench press", "body_part": "chest",
+        "equipment": "barbell", "target": "pectorals",
+        "secondary_muscles": [], "gif_url": "videos/1003-c.gif",
+        "instruction_steps": {"es": ["Paso uno."]},
+    },
+]
+
+
+@pytest.fixture
+def catalogo_asimetrico(db_session):
+    ingestar(db_session, ASIMETRICAS, {})
+    return db_session
+
+
+def test_sin_filtros_activos_todo_esta_disponible(catalogo_asimetrico):
+    r = filtros(catalogo_asimetrico)
+
+    assert r["grupos_disponibles"] == r["grupos_musculares"] == ["Espalda", "Pecho"]
+    assert r["equipamientos_disponibles"] == r["equipamientos"] == ["Balón bosu", "Barra"]
+
+
+def test_un_grupo_activo_atenua_el_equipamiento_imposible(catalogo_asimetrico):
+    """El caso que reportó Matías: Espalda no tiene ningún ejercicio con bosu."""
+    r = filtros(catalogo_asimetrico, body_part="Espalda")
+
+    # La lista completa no cambia: los chips no desaparecen ni se reordenan.
+    assert r["equipamientos"] == ["Balón bosu", "Barra"]
+    # Pero solo "Barra" sigue dando resultados.
+    assert r["equipamientos_disponibles"] == ["Barra"]
+
+
+def test_el_grupo_activo_no_se_restringe_a_si_mismo(catalogo_asimetrico):
+    """Cambiar de grupo muscular nunca puede quedar sin opciones.
+
+    Si los grupos se filtraran por el grupo activo, solo quedaría "Espalda"
+    disponible y tocar cualquier otro chip sería imposible.
+    """
+    r = filtros(catalogo_asimetrico, body_part="Espalda")
+
+    assert r["grupos_disponibles"] == ["Espalda", "Pecho"]
+
+
+def test_un_equipamiento_activo_atenua_los_grupos_imposibles(catalogo_asimetrico):
+    r = filtros(catalogo_asimetrico, equipment="Balón bosu")
+
+    assert r["grupos_musculares"] == ["Espalda", "Pecho"]
+    assert r["grupos_disponibles"] == ["Pecho"]
+    # Y el equipamiento activo tampoco se restringe a sí mismo.
+    assert r["equipamientos_disponibles"] == ["Balón bosu", "Barra"]
+
+
+def test_la_busqueda_por_texto_tambien_restringe(catalogo_asimetrico):
+    r = filtros(catalogo_asimetrico, q="row")
+
+    assert r["grupos_disponibles"] == ["Espalda"]
+    assert r["equipamientos_disponibles"] == ["Barra"]
+
+
+def test_endpoint_filtros_acepta_los_filtros_activos(
+    client, catalogo_asimetrico, auth_headers
+):
+    r = client.get("/api/catalog/filtros?body_part=Espalda", headers=auth_headers)
+
+    assert r.status_code == 200
+    assert r.json()["equipamientos"] == ["Balón bosu", "Barra"]
+    assert r.json()["equipamientos_disponibles"] == ["Barra"]
 
 
 def test_endpoint_filtros_exige_token(client):
@@ -174,4 +268,6 @@ def test_filtros_no_cae_en_el_handler_de_ficha(client, auth_headers):
     r = client.get("/api/catalog/filtros", headers=auth_headers)
 
     assert r.status_code == 200
-    assert r.json() == {"grupos_musculares": [], "equipamientos": []}
+    # Lo que importa es que responda el handler de filtros y no el de ficha:
+    # la forma exacta del payload la fijan los tests de arriba.
+    assert "grupos_musculares" in r.json()

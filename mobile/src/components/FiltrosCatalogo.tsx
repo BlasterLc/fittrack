@@ -4,15 +4,22 @@ import { useFiltros } from '@/hooks/useCatalogo';
 import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
 
 type Props = {
+  q: string;
   grupo: string | null;
   equipo: string | null;
   onGrupo: (valor: string | null) => void;
   onEquipo: (valor: string | null) => void;
 };
 
-export function FiltrosCatalogo({ grupo, equipo, onGrupo, onEquipo }: Props) {
-  const filtros = useFiltros();
+export function FiltrosCatalogo({ q, grupo, equipo, onGrupo, onEquipo }: Props) {
+  const filtros = useFiltros(q, grupo, equipo);
   const [hojaAbierta, setHojaAbierta] = useState(false);
+
+  // Un valor que no está en la lista de disponibles daría cero resultados
+  // combinado con lo que ya está activo. Se atenúa en vez de esconderse: si
+  // los chips desaparecieran, la fila saltaría en cada toque.
+  const gruposOk = new Set(filtros.data?.grupos_disponibles ?? []);
+  const equiposOk = new Set(filtros.data?.equipamientos_disponibles ?? []);
 
   return (
     <View style={styles.contenedor}>
@@ -39,6 +46,8 @@ export function FiltrosCatalogo({ grupo, equipo, onGrupo, onEquipo }: Props) {
               key={g}
               label={g}
               activo={grupo === g}
+              // El activo nunca se atenúa: siempre se puede desactivar.
+              vacio={grupo !== g && !gruposOk.has(g)}
               onPress={() => onGrupo(grupo === g ? null : g)}
             />
           ))}
@@ -87,6 +96,7 @@ export function FiltrosCatalogo({ grupo, equipo, onGrupo, onEquipo }: Props) {
                   key={e}
                   label={e}
                   activo={equipo === e}
+                  vacio={equipo !== e && !equiposOk.has(e)}
                   onPress={() => {
                     onEquipo(equipo === e ? null : e);
                     setHojaAbierta(false);
@@ -104,21 +114,35 @@ export function FiltrosCatalogo({ grupo, equipo, onGrupo, onEquipo }: Props) {
 function Chip({
   label,
   activo,
+  vacio = false,
   onPress,
   sufijo,
 }: {
   label: string;
   activo: boolean;
+  vacio?: boolean;
   onPress: () => void;
   sufijo?: string;
 }) {
   return (
     <Pressable
-      style={[styles.chip, activo && styles.chipActivo]}
+      style={[styles.chip, activo && styles.chipActivo, vacio && styles.chipVacio]}
       onPress={onPress}
+      disabled={vacio}
+      // Sin esto un chip atenuado se lee como un chip cualquiera que no
+      // responde: el lector de pantalla tiene que decir que está deshabilitado.
+      accessibilityRole="button"
+      accessibilityState={{ selected: activo, disabled: vacio }}
+      accessibilityHint={vacio ? 'No hay ejercicios con esta combinación' : undefined}
       hitSlop={6}
     >
-      <Text style={[styles.chipTexto, activo && styles.chipTextoActivo]}>
+      <Text
+        style={[
+          styles.chipTexto,
+          activo && styles.chipTextoActivo,
+          vacio && styles.chipTextoVacio,
+        ]}
+      >
         {label}
         {sufijo ? ` ${sufijo}` : ''}
       </Text>
@@ -140,8 +164,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   chipActivo: { backgroundColor: colors.primary, borderColor: colors.primary },
+  // Atenuado, no ámbar: el ámbar del proyecto marca lo que necesita atención
+  // y esto es apenas una opción que no aplica.
+  chipVacio: { backgroundColor: 'transparent', borderColor: colors.line, opacity: 0.4 },
   chipTexto: { color: colors.muted, fontFamily: fonts.medium, fontSize: fontSize.sm },
   chipTextoActivo: { color: colors.ink, fontFamily: fonts.semibold },
+  chipTextoVacio: { color: colors.muted },
   modalFondo: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' },
   hoja: {
     backgroundColor: colors.surface,

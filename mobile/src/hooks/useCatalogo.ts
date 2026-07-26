@@ -18,8 +18,12 @@ export type EjercicioFicha = EjercicioResumen & {
 };
 
 export type FiltrosDisponibles = {
+  // Los chips que se dibujan: siempre los mismos, para que la fila no salte.
   grupos_musculares: string[];
   equipamientos: string[];
+  // Cuáles de esos siguen dando resultados con los filtros ya activos.
+  grupos_disponibles: string[];
+  equipamientos_disponibles: string[];
 };
 
 type PaginaBusqueda = { total: number; resultados: EjercicioResumen[] };
@@ -27,12 +31,26 @@ type PaginaBusqueda = { total: number; resultados: EjercicioResumen[] };
 const POR_PAGINA = 50;
 const UN_DIA = 24 * 60 * 60 * 1000;
 
-export function useFiltros() {
+export function useFiltros(q: string, grupo: string | null, equipo: string | null) {
   return useQuery({
-    queryKey: ['catalogo', 'filtros'],
-    queryFn: () => apiGet<FiltrosDisponibles>('/api/catalog/filtros'),
-    // Solo cambian si se vuelve a correr la ingesta.
+    queryKey: ['catalogo', 'filtros', { q, grupo, equipo }],
+    queryFn: () => {
+      // Los filtros activos viajan al backend: sin ellos no puede saber qué
+      // combinaciones siguen dando resultados. Cada dimensión se cruza con
+      // las otras, nunca consigo misma.
+      const params = new URLSearchParams();
+      if (q) params.set('q', q);
+      if (grupo) params.set('body_part', grupo);
+      if (equipo) params.set('equipment', equipo);
+      const cadena = params.toString();
+      return apiGet<FiltrosDisponibles>(
+        `/api/catalog/filtros${cadena ? `?${cadena}` : ''}`,
+      );
+    },
+    // Para una combinación dada solo cambian si se vuelve a correr la ingesta.
     staleTime: UN_DIA,
+    // Evita que la fila de chips parpadee entre combinaciones.
+    placeholderData: (anterior) => anterior,
   });
 }
 

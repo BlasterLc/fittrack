@@ -69,21 +69,40 @@ def contar(
     return sesion.execute(consulta).scalar_one()
 
 
-def filtros(sesion: Session) -> dict[str, list[str]]:
-    """Valores disponibles para filtrar, sacados de los propios datos.
+def _valores(sesion: Session, columna, q, body_part, equipment) -> list[str]:
+    consulta = _filtrar(select(columna).distinct(), q, body_part, equipment)
+    return list(sesion.execute(consulta.order_by(columna)).scalars())
 
-    Salen de la base y no de una lista escrita a mano: así la app nunca
-    ofrece un filtro que devuelve cero resultados, y si cambia el dataset
-    los filtros se actualizan solos.
+
+def filtros(
+    sesion: Session,
+    q: str | None = None,
+    body_part: str | None = None,
+    equipment: str | None = None,
+) -> dict[str, list[str]]:
+    """Valores para filtrar, sacados de los propios datos.
+
+    Devuelve dos cosas por dimensión: la lista completa (los chips que se
+    dibujan, siempre los mismos para que no salten) y cuáles de esos valores
+    siguen dando resultados con los filtros que ya están activos.
+
+    La distinción importa porque los filtros se combinan con AND. Que un
+    valor exista no significa que se pueda combinar: "Balón bosu" solo
+    aparece en Pecho y Piernas, así que con Espalda activo da cero. Antes se
+    devolvían las dos listas completas sin cruzarlas y la app ofrecía
+    combinaciones vacías.
+
+    Cada dimensión se restringe por las OTRAS, nunca por sí misma: si los
+    grupos se filtraran por el grupo activo quedaría uno solo disponible y
+    sería imposible cambiar de grupo sin limpiar el filtro primero.
     """
-    grupos = sesion.execute(
-        select(CatalogExercise.body_part_es)
-        .distinct()
-        .order_by(CatalogExercise.body_part_es)
-    ).scalars()
-    equipos = sesion.execute(
-        select(CatalogExercise.equipment_es)
-        .distinct()
-        .order_by(CatalogExercise.equipment_es)
-    ).scalars()
-    return {"grupos_musculares": list(grupos), "equipamientos": list(equipos)}
+    return {
+        "grupos_musculares": _valores(sesion, CatalogExercise.body_part_es, None, None, None),
+        "equipamientos": _valores(sesion, CatalogExercise.equipment_es, None, None, None),
+        "grupos_disponibles": _valores(
+            sesion, CatalogExercise.body_part_es, q, None, equipment
+        ),
+        "equipamientos_disponibles": _valores(
+            sesion, CatalogExercise.equipment_es, q, body_part, None
+        ),
+    }

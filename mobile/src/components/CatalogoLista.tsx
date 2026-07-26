@@ -54,6 +54,7 @@ export function CatalogoLista({
       </View>
 
       <FiltrosCatalogo
+        q={q}
         grupo={grupo}
         equipo={equipo}
         onGrupo={setGrupo}
