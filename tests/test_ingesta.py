@@ -1,5 +1,11 @@
+import json
+
+import pytest
+
 from api.models import CatalogExercise
 from api.scripts.ingestar import (
+    FICHAS,
+    NOMBRES,
     construir_fila,
     desduplicar,
     ingestar,
@@ -187,3 +193,18 @@ def test_reduccion_sospechosa_si_el_dataset_llega_vacio():
 
 def test_reduccion_no_sospechosa_justo_en_el_borde_del_margen():
     assert reduccion_sospechosa(90, 100) is False
+
+
+@pytest.mark.skipif(
+    not FICHAS.exists(),
+    reason="requiere data/exercises.json (no se versiona; se baja con api.scripts.descargar)",
+)
+def test_el_dataset_real_queda_en_1312_fichas(db_session):
+    fichas = json.loads(FICHAS.read_text())
+    traducciones = json.loads(NOMBRES.read_text())
+
+    resultado = ingestar(db_session, fichas, traducciones)
+
+    assert len(fichas) == 1324
+    assert resultado.total == 1312
+    assert db_session.query(CatalogExercise).count() == 1312

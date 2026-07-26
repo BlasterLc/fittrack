@@ -162,7 +162,11 @@ def main() -> int:
             return 1
 
         resultado = ingestar(sesion, fichas, traducciones)
-        print(f"Ingeridas {resultado.total} fichas · {resultado.borradas} borradas")
+        print(
+            f"Ingeridas {resultado.total} fichas "
+            f"({len(fichas) - resultado.total} duplicadas descartadas · "
+            f"{resultado.borradas} borradas de la base)"
+        )
         sin_traducir = sesion.query(CatalogExercise).filter(
             CatalogExercise.nombre_es == CatalogExercise.nombre_en
         ).count()
