@@ -1,17 +1,63 @@
-import { View, Text, ScrollView, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import Animated, {
+  Extrapolation,
+  interpolate,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+} from 'react-native-reanimated';
 import { useFicha } from '@/hooks/useCatalogo';
 import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
 
 // Tope que fija la licencia de Gym visual. No se escala hacia arriba.
 const GIF_MAX = 180;
+const GIF_MIN = 56;
+const RECORRIDO = GIF_MAX - GIF_MIN;
+const PADDING_CAJA = spacing.xl;
 
 export default function Ficha() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const ficha = useFicha(id);
+
+  const desplazamiento = useSharedValue(0);
+  const anchoCaja = useSharedValue(0);
+
+  const alScrollear = useAnimatedScrollHandler((evento) => {
+    desplazamiento.value = evento.contentOffset.y;
+  });
+
+  const estiloGif = useAnimatedStyle(() => {
+    const lado = interpolate(
+      desplazamiento.value,
+      [0, RECORRIDO],
+      [GIF_MAX, GIF_MIN],
+      Extrapolation.CLAMP,
+    );
+    // El plan cambiaba alignItems de 'center' a 'flex-start' pasado el 55%,
+    // pero alignItems no interpola: el GIF pegaba un salto de ~100px a mitad
+    // del recorrido. Se desplaza con translateX, que sí es continuo.
+    const centrado = (anchoCaja.value - 2 * PADDING_CAJA - lado) / 2;
+    const x = interpolate(
+      desplazamiento.value,
+      [0, RECORRIDO],
+      [0, -centrado],
+      Extrapolation.CLAMP,
+    );
+    return { width: lado, height: lado, transform: [{ translateX: x }] };
+  });
+
+  const estiloNombreBarra = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      desplazamiento.value,
+      [RECORRIDO * 0.6, RECORRIDO],
+      [0, 1],
+      Extrapolation.CLAMP,
+    ),
+  }));
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -19,6 +65,9 @@ export default function Ficha() {
         <Pressable onPress={() => router.back()} hitSlop={12}>
           <Text style={styles.volver}>‹ Catálogo</Text>
         </Pressable>
+        <Animated.Text style={[styles.barraNombre, estiloNombreBarra]} numberOfLines={1}>
+          {ficha.data?.nombre_es ?? ''}
+        </Animated.Text>
       </View>
 
       {ficha.isPending ? (
@@ -31,14 +80,26 @@ export default function Ficha() {
           </Pressable>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.cuerpo}>
-          <View style={styles.gifCaja}>
-            <Image
-              source={{ uri: ficha.data.gif_url }}
-              style={styles.gif}
-              contentFit="contain"
-              cachePolicy="memory-disk"
-            />
+        <Animated.ScrollView
+          contentContainerStyle={styles.cuerpo}
+          onScroll={alScrollear}
+          scrollEventThrottle={16}
+          stickyHeaderIndices={[0]}
+        >
+          <View
+            style={styles.gifCaja}
+            onLayout={(e) => {
+              anchoCaja.value = e.nativeEvent.layout.width;
+            }}
+          >
+            <Animated.View style={estiloGif}>
+              <Image
+                source={{ uri: ficha.data.gif_url }}
+                style={styles.gifLleno}
+                contentFit="contain"
+                cachePolicy="memory-disk"
+              />
+            </Animated.View>
           </View>
 
           <Text style={styles.nombre}>{ficha.data.nombre_es}</Text>
@@ -67,7 +128,7 @@ export default function Ficha() {
 
           {/* La atribución visible es obligatoria por licencia. */}
           <Text style={styles.atribucion}>Animaciones {ficha.data.atribucion}</Text>
-        </ScrollView>
+        </Animated.ScrollView>
       )}
     </SafeAreaView>
   );
@@ -93,18 +154,34 @@ function Dato({
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   barra: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.line,
   },
   volver: { color: colors.muted, fontFamily: fonts.medium, fontSize: fontSize.base },
+  barraNombre: {
+    flex: 1,
+    color: colors.ink,
+    fontFamily: fonts.semibold,
+    fontSize: fontSize.base,
+  },
   centrado: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
   vacio: { color: colors.muted, fontFamily: fonts.regular, fontSize: fontSize.base },
   accion: { color: colors.primary, fontFamily: fonts.semibold, fontSize: fontSize.base },
   cuerpo: { paddingBottom: spacing.xxl },
-  gifCaja: { alignItems: 'center', paddingVertical: spacing.lg },
-  gif: { width: GIF_MAX, height: GIF_MAX, borderRadius: 12, backgroundColor: colors.surface2 },
+  // El fondo opaco no es decorativo: la caja queda pegada arriba
+  // (stickyHeaderIndices) y sin él se le transparenta la técnica por debajo.
+  gifCaja: {
+    alignItems: 'center',
+    paddingVertical: spacing.lg,
+    paddingHorizontal: PADDING_CAJA,
+    backgroundColor: colors.bg,
+  },
+  gifLleno: { width: '100%', height: '100%', borderRadius: 12, backgroundColor: colors.surface2 },
   nombre: {
     color: colors.ink,
     fontFamily: fonts.bold,
