@@ -36,7 +36,11 @@ function RootNavigator() {
   useAuthGate();
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
-      <Stack.Screen name="(auth)" />
+      {/* "(auth)/login" y no "(auth)": el grupo no tiene _layout.tsx propio,
+          así que Expo Router lo aplana y la ruta se registra con el nombre
+          completo. Si algún día el grupo suma más pantallas y gana su propio
+          _layout.tsx, esto vuelve a ser "(auth)". */}
+      <Stack.Screen name="(auth)/login" />
       <Stack.Screen name="(tabs)" />
     </Stack>
   );
