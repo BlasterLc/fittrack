@@ -12,6 +12,33 @@ FICHA = {
     "gif_url": "videos/0025-EIeI8Vf.gif",
 }
 
+OTRA_FICHA = {
+    "id": "0026",
+    "name": "barbell squat",
+    "body_part": "upper legs",
+    "equipment": "barbell",
+    "target": "quads",
+    "secondary_muscles": ["glutes"],
+    "instruction_steps": {"es": ["Un paso."]},
+    "gif_url": "videos/0026-AbCdEf.gif",
+}
+
+GEMELA = {
+    "id": "0099",
+    "name": "barbells bench press",
+    "body_part": "chest",
+    "equipment": "barbell",
+    "target": "pectorals",
+    "secondary_muscles": ["triceps"],
+    "instruction_steps": {"es": ["Otro paso."]},
+    "gif_url": "videos/0099-ZzZzZz.gif",
+}
+
+TRADUCCIONES_GEMELAS = {
+    "barbell bench press": "Press de banca con barra",
+    "barbells bench press": "Press de banca con barra",
+}
+
 
 def test_construir_fila_traduce_y_normaliza():
     fila = construir_fila(FICHA, {"barbell bench press": "Press de banca con barra"})
@@ -105,3 +132,30 @@ def test_desduplicar_colapsa_un_grupo_de_tres():
 
 def test_desduplicar_con_lista_vacia_devuelve_lista_vacia():
     assert desduplicar([]) == []
+
+
+def test_ingestar_elimina_las_fichas_que_ya_no_estan(db_session):
+    traducciones = {"barbell bench press": "Press de banca con barra"}
+    ingestar(db_session, [FICHA, OTRA_FICHA], traducciones)
+    assert db_session.query(CatalogExercise).count() == 2
+
+    ingestar(db_session, [FICHA], traducciones)
+
+    assert db_session.query(CatalogExercise).count() == 1
+    assert db_session.get(CatalogExercise, "0026") is None
+
+
+def test_ingestar_descarta_el_duplicado_y_conserva_el_id_mas_bajo(db_session):
+    total = ingestar(db_session, [FICHA, GEMELA], TRADUCCIONES_GEMELAS)
+
+    assert total == 1
+    assert db_session.query(CatalogExercise).count() == 1
+    assert db_session.get(CatalogExercise, "0025") is not None
+    assert db_session.get(CatalogExercise, "0099") is None
+
+
+def test_ingestar_con_lista_vacia_deja_la_tabla_vacia(db_session):
+    ingestar(db_session, [FICHA], {"barbell bench press": "Press de banca con barra"})
+
+    assert ingestar(db_session, [], {}) == 0
+    assert db_session.query(CatalogExercise).count() == 0

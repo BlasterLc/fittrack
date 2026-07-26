@@ -3,14 +3,15 @@
 Uso:
     python -m api.scripts.ingestar
 
-Idempotente: vuelve a ejecutarse sin duplicar y actualiza traducciones
-corregidas a mano.
+Convergente: vuelve a ejecutarse sin duplicar, actualiza traducciones
+corregidas a mano y borra lo que ya no está en el dataset de origen.
 """
 
 import json
 import sys
 from pathlib import Path
 
+from sqlalchemy import delete
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -69,7 +70,15 @@ def desduplicar(filas: list[dict]) -> list[dict]:
 
 
 def ingestar(sesion: Session, fichas: list[dict], traducciones: dict[str, str]) -> int:
-    filas = [construir_fila(f, traducciones) for f in fichas]
+    """Deja la tabla igual al dataset: inserta, actualiza y elimina.
+
+    Es convergente, no solo idempotente: las filas que están en la base
+    pero no en el dataset (o que quedaron descartadas por duplicadas) se
+    borran. Sin eso, desduplicar no tendría efecto sobre una base que ya
+    fue cargada.
+    """
+    filas = desduplicar([construir_fila(f, traducciones) for f in fichas])
+
     for fila in filas:
         sentencia = insert(CatalogExercise).values(**fila)
         sentencia = sentencia.on_conflict_do_update(
@@ -77,6 +86,13 @@ def ingestar(sesion: Session, fichas: list[dict], traducciones: dict[str, str]) 
             set_={k: v for k, v in fila.items() if k != "id"},
         )
         sesion.execute(sentencia)
+
+    ids = [f["id"] for f in filas]
+    sobrantes = delete(CatalogExercise)
+    if ids:
+        sobrantes = sobrantes.where(CatalogExercise.id.not_in(ids))
+    sesion.execute(sobrantes)
+
     sesion.commit()
     return len(filas)
 
