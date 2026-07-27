@@ -10,7 +10,7 @@ export default function Catalogo() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <Text style={styles.h1}>Gym</Text>
-      <CatalogoLista onSeleccionar={(e) => router.push(`/gym/${e.id}`)} />
+      <CatalogoLista onSeleccionar={(e) => router.push(`/gym/ejercicio/${e.id}`)} />
     </SafeAreaView>
   );
 }
