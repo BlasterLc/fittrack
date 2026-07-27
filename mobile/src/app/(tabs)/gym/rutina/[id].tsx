@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
 import Sortable from 'react-native-sortables';
 import {
@@ -20,15 +20,12 @@ import {
 } from '@/hooks/useRutinas';
 import type { EjercicioResumen } from '@/hooks/useCatalogo';
 import { apiGet } from '@/lib/api';
+import { tomarSeleccion } from '@/lib/seleccionEjercicios';
 import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
 
 export default function EditorRutina() {
   const router = useRouter();
-  const { id, elegidos, ts } = useLocalSearchParams<{
-    id: string;
-    elegidos?: string;
-    ts?: string;
-  }>();
+  const { id } = useLocalSearchParams<{ id: string }>();
   const esNueva = id === 'nueva';
   const rutinaId = esNueva ? null : Number(id);
 
@@ -43,52 +40,45 @@ export default function EditorRutina() {
   // ejercicio cerca del borde no puede desplazar la lista automáticamente.
   const refScroll = useAnimatedRef<Animated.ScrollView>();
 
-  // DIAGNOSTICO TEMPORAL (Fase 5b): se quita cuando se cierre el bug del
-  // nombre que se pierde. Muestra si la pantalla se vuelve a montar al volver
-  // del catálogo, que es de lo que depende que el estado local sobreviva.
+  // Carga inicial desde el servidor, una sola vez de verdad. Sin la bandera,
+  // el efecto vuelve a correr con cada refetch de TanStack Query (cualquier
+  // mutación invalida ['rutinas']) y pisa con el valor del servidor el nombre
+  // que se está escribiendo.
+  const yaHidratado = useRef(false);
   useEffect(() => {
-    console.log('[editor] MONTADO', { id, elegidos, ts });
-    return () => console.log('[editor] DESMONTADO', { id });
-  }, []);
-
-  // Carga inicial desde el servidor, una sola vez.
-  useEffect(() => {
-    if (detalle.data) {
-      console.log('[editor] hidrata desde el servidor', {
-        nombreServidor: detalle.data.nombre,
-        ejercicios: detalle.data.ejercicios.length,
-      });
+    if (detalle.data && !yaHidratado.current) {
+      yaHidratado.current = true;
       setNombre(detalle.data.nombre);
       setLista(detalle.data.ejercicios);
     }
   }, [detalle.data]);
 
-  // Vuelta desde la pantalla de selección: se piden las fichas de los ids
-  // elegidos y se reemplaza la lista.
-  useEffect(() => {
-    if (!elegidos) return;
-    const ids = elegidos.split(',').filter(Boolean);
-    let cancelado = false;
+  // Vuelta desde la pantalla de selección: la lista elegida llega por el buzón
+  // (ver lib/seleccionEjercicios), no por parámetros de navegación, y se piden
+  // las fichas completas para poder dibujarlas.
+  useFocusEffect(
+    useCallback(() => {
+      const ids = tomarSeleccion();
+      if (!ids) return;
 
-    console.log('[editor] vuelve del catálogo', { ids: ids.length, ts });
+      let cancelado = false;
 
-    Promise.all(ids.map((i) => apiGet<EjercicioResumen>(`/api/catalog/${i}`)))
-      .then((fichas) => {
-        if (!cancelado) {
-          setLista(fichas);
-          setSucio(true);
-        }
-      })
-      .catch(() => {
-        if (!cancelado) Alert.alert('No pudimos cargar los ejercicios elegidos');
-      });
+      Promise.all(ids.map((i) => apiGet<EjercicioResumen>(`/api/catalog/${i}`)))
+        .then((fichas) => {
+          if (!cancelado) {
+            setLista(fichas);
+            setSucio(true);
+          }
+        })
+        .catch(() => {
+          if (!cancelado) Alert.alert('No pudimos cargar los ejercicios elegidos');
+        });
 
-    return () => {
-      cancelado = true;
-    };
-    // `ts` está en las dependencias a propósito: sin él, volver con el mismo
-    // conjunto de ids no cambiaría `elegidos` y el efecto no correría.
-  }, [elegidos, ts]);
+      return () => {
+        cancelado = true;
+      };
+    }, []),
+  );
 
   const nombreValido = nombre.trim().length > 0;
   const puedeGuardar = nombreValido && lista.length > 0;
@@ -101,7 +91,6 @@ export default function EditorRutina() {
 
   function alGuardar() {
     const body = { nombre: nombre.trim(), catalog_ids: lista.map((e) => e.id) };
-    console.log('[editor] GUARDA', { esNueva, body });
     const mutacion = esNueva ? crear : guardar;
     mutacion.mutate(body, {
       onSuccess: () => router.back(),
@@ -211,7 +200,7 @@ export default function EditorRutina() {
           onPress={() =>
             router.push({
               pathname: '/gym/rutina/agregar',
-              params: { ya: lista.map((e) => e.id).join(','), rutina: id },
+              params: { ya: lista.map((e) => e.id).join(',') },
             })
           }
         >
