@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TextInput,
-  ScrollView,
   Pressable,
   ActivityIndicator,
   Alert,
@@ -12,6 +11,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import Animated, { useAnimatedRef } from 'react-native-reanimated';
+import Sortable from 'react-native-sortables';
 import {
   useCrearRutina,
   useGuardarRutina,
@@ -38,6 +39,9 @@ export default function EditorRutina() {
   const [nombre, setNombre] = useState('');
   const [lista, setLista] = useState<EjercicioResumen[]>([]);
   const [sucio, setSucio] = useState(false);
+  // El editor vive dentro de un scroll: sin esta referencia, arrastrar un
+  // ejercicio cerca del borde no puede desplazar la lista automáticamente.
+  const refScroll = useAnimatedRef<Animated.ScrollView>();
 
   // Carga inicial desde el servidor, una sola vez.
   useEffect(() => {
@@ -76,17 +80,8 @@ export default function EditorRutina() {
   const puedeGuardar = nombreValido && lista.length > 0;
   const guardando = crear.isPending || guardar.isPending;
 
-  function mover(desde: number, hacia: number) {
-    if (hacia < 0 || hacia >= lista.length) return;
-    const copia = [...lista];
-    const [movido] = copia.splice(desde, 1);
-    copia.splice(hacia, 0, movido);
-    setLista(copia);
-    setSucio(true);
-  }
-
-  function quitar(indice: number) {
-    setLista((previos) => previos.filter((_, i) => i !== indice));
+  function quitar(id: string) {
+    setLista((previos) => previos.filter((e) => e.id !== id));
     setSucio(true);
   }
 
@@ -127,7 +122,7 @@ export default function EditorRutina() {
         <Text style={styles.titulo}>{esNueva ? 'Nueva rutina' : 'Editar rutina'}</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.cuerpo}>
+      <Animated.ScrollView ref={refScroll} contentContainerStyle={styles.cuerpo}>
         <Text style={styles.etiqueta}>Nombre</Text>
         <TextInput
           style={styles.input}
@@ -154,24 +149,43 @@ export default function EditorRutina() {
           </Text>
         )}
 
-        {lista.map((e, i) => (
-          <View key={e.id} style={styles.fila}>
-            <Image source={{ uri: e.gif_url }} style={styles.gif} contentFit="contain" cachePolicy="memory-disk" />
-            <View style={styles.filaTexto}>
-              <Text style={styles.filaNombre}>{e.nombre_es}</Text>
-              <Text style={styles.filaMeta}>{e.body_part_es}</Text>
+        <Sortable.Grid
+          columns={1}
+          data={lista}
+          keyExtractor={(e) => e.id}
+          rowGap={0}
+          // La grilla vive dentro del scroll de arriba: sin `scrollableRef`
+          // no puede desplazar la lista mientras se arrastra cerca del borde.
+          scrollableRef={refScroll}
+          onDragEnd={({ data }) => {
+            setLista(data);
+            setSucio(true);
+          }}
+          renderItem={({ item }) => (
+            <View style={styles.fila}>
+              <Sortable.Handle>
+                <Text style={styles.asa}>⠿</Text>
+              </Sortable.Handle>
+              <Image
+                source={{ uri: item.gif_url }}
+                style={styles.gif}
+                contentFit="contain"
+                cachePolicy="memory-disk"
+              />
+              <View style={styles.filaTexto}>
+                <Text style={styles.filaNombre}>{item.nombre_es}</Text>
+                <Text style={styles.filaMeta}>{item.body_part_es}</Text>
+              </View>
+              <Pressable
+                onPress={() => quitar(item.id)}
+                hitSlop={12}
+                style={styles.cuadro}
+              >
+                <Text style={styles.quitar}>×</Text>
+              </Pressable>
             </View>
-            <Pressable onPress={() => mover(i, i - 1)} hitSlop={12} style={styles.cuadro}>
-              <Text style={styles.cuadroTexto}>↑</Text>
-            </Pressable>
-            <Pressable onPress={() => mover(i, i + 1)} hitSlop={12} style={styles.cuadro}>
-              <Text style={styles.cuadroTexto}>↓</Text>
-            </Pressable>
-            <Pressable onPress={() => quitar(i)} hitSlop={12} style={styles.cuadro}>
-              <Text style={styles.quitar}>×</Text>
-            </Pressable>
-          </View>
-        ))}
+          )}
+        />
 
         <Pressable
           style={styles.agregar}
@@ -198,7 +212,7 @@ export default function EditorRutina() {
             Una rutina necesita un nombre y al menos un ejercicio.
           </Text>
         )}
-      </ScrollView>
+      </Animated.ScrollView>
     </SafeAreaView>
   );
 }
@@ -266,8 +280,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cuadroTexto: { color: colors.muted, fontFamily: fonts.medium, fontSize: fontSize.sm },
   quitar: { color: colors.danger, fontFamily: fonts.medium, fontSize: fontSize.base },
+  asa: { color: colors.muted, fontSize: 17, letterSpacing: 1, paddingHorizontal: spacing.xs },
   agregar: {
     borderWidth: 1,
     borderStyle: 'solid',
