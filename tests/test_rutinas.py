@@ -277,3 +277,90 @@ def test_archivar_una_rutina_ajena_no_hace_nada(catalogo):
 
     assert servicio.archivar(catalogo, USUARIO, ajena.id, archivar=True) is None
     assert catalogo.get(Routine, ajena.id).archived_at is None
+
+
+def test_endpoint_listar_devuelve_las_rutinas(client, catalogo, auth_headers):
+    servicio.crear(catalogo, USUARIO, "Empuje A", ["0025", "0033"])
+
+    r = client.get("/api/routines", headers=auth_headers)
+
+    assert r.status_code == 200
+    assert r.json()[0]["nombre"] == "Empuje A"
+    assert r.json()[0]["total_ejercicios"] == 2
+    assert r.json()[0]["grupos_musculares"] == ["Hombros", "Pecho"]
+
+
+def test_endpoint_crear_devuelve_201_y_el_detalle(client, catalogo, auth_headers):
+    r = client.post(
+        "/api/routines",
+        json={"nombre": "Empuje A", "catalog_ids": ["0025", "0033"]},
+        headers=auth_headers,
+    )
+
+    assert r.status_code == 201
+    assert r.json()["nombre"] == "Empuje A"
+    assert [e["id"] for e in r.json()["ejercicios"]] == ["0025", "0033"]
+
+
+def test_endpoint_crear_con_ejercicio_inexistente_da_404(client, catalogo, auth_headers):
+    r = client.post(
+        "/api/routines",
+        json={"nombre": "Empuje A", "catalog_ids": ["9999"]},
+        headers=auth_headers,
+    )
+
+    assert r.status_code == 404
+    assert "9999" in r.json()["detail"]
+
+
+def test_endpoint_crear_sin_ejercicios_da_422(client, catalogo, auth_headers):
+    r = client.post(
+        "/api/routines",
+        json={"nombre": "Empuje A", "catalog_ids": []},
+        headers=auth_headers,
+    )
+
+    assert r.status_code == 422
+
+
+def test_endpoint_detalle_de_rutina_ajena_da_404(client, catalogo, auth_headers):
+    """404 y no 403: no se confirma la existencia de un recurso ajeno."""
+    ajena = _crear(catalogo, OTRO_USUARIO, "Ajena", ["0025"])
+
+    r = client.get(f"/api/routines/{ajena.id}", headers=auth_headers)
+
+    assert r.status_code == 404
+
+
+def test_endpoint_reemplazar_converge(client, catalogo, auth_headers):
+    creada = servicio.crear(catalogo, USUARIO, "Empuje A", ["0025", "0033"])
+
+    r = client.put(
+        f"/api/routines/{creada.id}",
+        json={"nombre": "Empuje B", "catalog_ids": ["0043"]},
+        headers=auth_headers,
+    )
+
+    assert r.status_code == 200
+    assert r.json()["nombre"] == "Empuje B"
+    assert [e["id"] for e in r.json()["ejercicios"]] == ["0043"]
+
+
+def test_endpoint_archivar_y_desarchivar(client, catalogo, auth_headers):
+    creada = servicio.crear(catalogo, USUARIO, "Empuje A", ["0025"])
+
+    r = client.patch(
+        f"/api/routines/{creada.id}", json={"archivada": True}, headers=auth_headers
+    )
+    assert r.status_code == 200
+    assert client.get("/api/routines", headers=auth_headers).json() == []
+
+    client.patch(
+        f"/api/routines/{creada.id}", json={"archivada": False}, headers=auth_headers
+    )
+    assert len(client.get("/api/routines", headers=auth_headers).json()) == 1
+
+
+def test_los_endpoints_de_rutinas_exigen_token(client):
+    assert client.get("/api/routines").status_code == 401
+    assert client.post("/api/routines", json={}).status_code == 401

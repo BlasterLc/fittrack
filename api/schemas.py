@@ -112,3 +112,33 @@ class ComidaOut(BaseModel):
     logged_at: datetime
     items: list[ItemComidaOut]
     model_config = {"from_attributes": True}
+
+
+class RutinaEnLista(BaseModel):
+    """Una fila de la lista de rutinas."""
+
+    id: int
+    nombre: str
+    archived_at: datetime | None
+    total_ejercicios: int
+    grupos_musculares: list[str]
+
+
+class RutinaDetalle(BaseModel):
+    """La rutina abierta en el editor, con las fichas del catálogo."""
+
+    id: int
+    nombre: str
+    archived_at: datetime | None
+    ejercicios: list[EjercicioResumen]
+    # Cuántos apuntaban a fichas que la ingesta ya borró. El editor lo avisa.
+    ejercicios_faltantes: int
+
+
+class GuardarRutinaRequest(BaseModel):
+    nombre: str
+    catalog_ids: list[str]
+
+
+class ArchivarRutinaRequest(BaseModel):
+    archivada: bool
