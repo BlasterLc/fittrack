@@ -1,6 +1,15 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import (
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -68,3 +77,59 @@ class MealItem(Base):
     fat_g: Mapped[float] = mapped_column(Float, nullable=False)
 
     meal: Mapped["Meal"] = relationship(back_populates="items")
+
+
+class Routine(Base):
+    """Una rutina: lista ordenada de ejercicios del catálogo, con nombre.
+
+    Aislada por user_id (= auth.users.id, sin FK), igual que Meal.
+    """
+
+    __tablename__ = "routines"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    nombre: Mapped[str] = mapped_column(String(80), nullable=False)
+    # Se archiva, nunca se elimina: así el historial de entrenamientos de la
+    # Fase 6 no puede quedar huérfano.
+    archived_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    ejercicios: Mapped[list["RoutineExercise"]] = relationship(
+        back_populates="rutina",
+        cascade="all, delete-orphan",
+        order_by="RoutineExercise.orden",
+    )
+
+
+class RoutineExercise(Base):
+    """Un ejercicio dentro de una rutina, en una posición."""
+
+    __tablename__ = "routine_exercises"
+    __table_args__ = (
+        # Un ejercicio, una sola vez por rutina. Es lo que permite que el
+        # catálogo use checks en vez de botones que suman de a uno.
+        UniqueConstraint("routine_id", "catalog_id", name="uq_rutina_ejercicio"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    routine_id: Mapped[int] = mapped_column(
+        ForeignKey("routines.id", ondelete="CASCADE"), nullable=False
+    )
+    # Sin ForeignKey a propósito: la ingesta del catálogo converge borrando lo
+    # que sobra. Con RESTRICT fallaría la ingesta; con CASCADE vaciaría rutinas
+    # en silencio. Se valida en el servicio.
+    catalog_id: Mapped[str] = mapped_column(String(8), nullable=False, index=True)
+    orden: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    # Se crean ahora aunque 5b no las use: las llena la Fase 6 al terminar el
+    # primer entrenamiento, y así no hay que tocar el esquema de producción.
+    sets_default: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    reps_default: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    weight_default: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    rutina: Mapped["Routine"] = relationship(back_populates="ejercicios")
