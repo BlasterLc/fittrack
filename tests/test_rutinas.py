@@ -250,3 +250,30 @@ def test_reemplazar_sana_una_rutina_con_ejercicios_borrados(catalogo):
     detalle = servicio.detalle(catalogo, USUARIO, rutina.id)
     assert detalle["ejercicios_faltantes"] == 0
     assert [e.id for e in detalle["ejercicios"]] == ["0025", "0033"]
+
+
+def test_archivar_la_saca_de_la_lista_sin_borrarla(catalogo):
+    creada = servicio.crear(catalogo, USUARIO, "Empuje A", ["0025"])
+
+    servicio.archivar(catalogo, USUARIO, creada.id, archivar=True)
+
+    assert servicio.listar(catalogo, USUARIO) == []
+    assert len(servicio.listar(catalogo, USUARIO, archivadas=True)) == 1
+    assert catalogo.get(Routine, creada.id) is not None
+
+
+def test_desarchivar_la_devuelve_a_la_lista(catalogo):
+    creada = servicio.crear(catalogo, USUARIO, "Empuje A", ["0025"])
+    servicio.archivar(catalogo, USUARIO, creada.id, archivar=True)
+
+    servicio.archivar(catalogo, USUARIO, creada.id, archivar=False)
+
+    assert len(servicio.listar(catalogo, USUARIO)) == 1
+    assert catalogo.get(Routine, creada.id).archived_at is None
+
+
+def test_archivar_una_rutina_ajena_no_hace_nada(catalogo):
+    ajena = _crear(catalogo, OTRO_USUARIO, "Ajena", ["0025"])
+
+    assert servicio.archivar(catalogo, USUARIO, ajena.id, archivar=True) is None
+    assert catalogo.get(Routine, ajena.id).archived_at is None

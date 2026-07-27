@@ -162,3 +162,16 @@ def reemplazar(
     sesion.commit()
     sesion.refresh(rutina)
     return rutina
+
+
+def archivar(
+    sesion: Session, user_id: str, rutina_id: int, archivar: bool
+) -> Routine | None:
+    rutina = obtener(sesion, user_id, rutina_id)
+    if rutina is None:
+        return None
+
+    rutina.archived_at = datetime.now(timezone.utc) if archivar else None
+    sesion.commit()
+    sesion.refresh(rutina)
+    return rutina
