@@ -86,7 +86,7 @@ def archivar(
     user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict:
-    rutina = servicio.archivar(db, user_id, rutina_id, archivar=body.archivada)
+    rutina = servicio.archivar(db, user_id, rutina_id, archivada=body.archivada)
     if rutina is None:
         raise HTTPException(status_code=404, detail=NO_ENCONTRADA)
     return servicio.detalle(db, user_id, rutina_id)

@@ -122,7 +122,9 @@ class RoutineExercise(Base):
     )
     # Sin ForeignKey a propósito: la ingesta del catálogo converge borrando lo
     # que sobra. Con RESTRICT fallaría la ingesta; con CASCADE vaciaría rutinas
-    # en silencio. Se valida en el servicio.
+    # en silencio. Se valida en el servicio. El índice queda puesto para la
+    # Fase 7, donde se consulta la progresión de un ejercicio a través de las
+    # rutinas.
     catalog_id: Mapped[str] = mapped_column(String(8), nullable=False, index=True)
     orden: Mapped[int] = mapped_column(Integer, nullable=False)
 

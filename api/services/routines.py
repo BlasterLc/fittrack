@@ -16,7 +16,7 @@ class EjercicioDesconocido(ValueError):
     """Se pidió un catalog_id que no está en el catálogo."""
 
 
-def _ejercicios_por_rutina(
+def _grupos_por_rutina(
     sesion: Session, ids: list[int]
 ) -> dict[int, list[str]]:
     """Grupos musculares de cada rutina, en una sola consulta.
@@ -49,7 +49,7 @@ def listar(sesion: Session, user_id: str, archivadas: bool = False) -> list[dict
         sesion.execute(consulta.order_by(Routine.nombre, Routine.id)).scalars()
     )
 
-    grupos = _ejercicios_por_rutina(sesion, [r.id for r in rutinas])
+    grupos = _grupos_por_rutina(sesion, [r.id for r in rutinas])
     return [
         {
             "id": r.id,
@@ -67,6 +67,8 @@ def _validar(sesion: Session, nombre: str, catalog_ids: list[str]) -> str:
     limpio = nombre.strip()
     if not limpio:
         raise RutinaInvalida("La rutina necesita un nombre")
+    if len(limpio) > 80:
+        raise RutinaInvalida("El nombre no puede superar los 80 caracteres")
     if not catalog_ids:
         raise RutinaInvalida("La rutina necesita al menos un ejercicio")
     if len(set(catalog_ids)) != len(catalog_ids):
@@ -87,6 +89,7 @@ def _validar(sesion: Session, nombre: str, catalog_ids: list[str]) -> str:
 def crear(
     sesion: Session, user_id: str, nombre: str, catalog_ids: list[str]
 ) -> Routine:
+    """Crea la rutina del usuario con sus ejercicios en el orden recibido."""
     limpio = _validar(sesion, nombre, catalog_ids)
 
     rutina = Routine(user_id=user_id, nombre=limpio)
@@ -99,11 +102,21 @@ def crear(
     return rutina
 
 
-def obtener(sesion: Session, user_id: str, rutina_id: int) -> Routine | None:
-    """La rutina del usuario, o None. Nunca devuelve la de otro."""
-    return sesion.execute(
-        select(Routine).where(Routine.id == rutina_id, Routine.user_id == user_id)
-    ).scalar_one_or_none()
+def obtener(
+    sesion: Session, user_id: str, rutina_id: int, para_actualizar: bool = False
+) -> Routine | None:
+    """La rutina del usuario, o None. Nunca devuelve la de otro.
+
+    Con para_actualizar=True toma un lock de fila: dos guardados simultáneos
+    sobre la misma rutina se serializan en vez de chocar contra la restricción
+    de unicidad, y gana el último en escribir.
+    """
+    consulta = select(Routine).where(
+        Routine.id == rutina_id, Routine.user_id == user_id
+    )
+    if para_actualizar:
+        consulta = consulta.with_for_update()
+    return sesion.execute(consulta).scalar_one_or_none()
 
 
 def detalle(sesion: Session, user_id: str, rutina_id: int) -> dict | None:
@@ -143,7 +156,7 @@ def reemplazar(
     manda el estado final y el servidor converge, igual que `ingestar()`. Evita
     endpoints de "mover" o "quitar" que ningún otro cliente usaría.
     """
-    rutina = obtener(sesion, user_id, rutina_id)
+    rutina = obtener(sesion, user_id, rutina_id, para_actualizar=True)
     if rutina is None:
         return None
 
@@ -152,8 +165,9 @@ def reemplazar(
     rutina.nombre = limpio
     # Las filas viejas se borran ANTES de insertar las nuevas: si un ejercicio
     # sobrevive al reemplazo, insertarlo de nuevo chocaría con
-    # uq_rutina_ejercicio mientras la fila anterior sigue viva. SQLAlchemy no
-    # garantiza ese orden dentro de un mismo flush, así que se fuerza.
+    # uq_rutina_ejercicio mientras la fila anterior sigue viva. SQLAlchemy
+    # emite los INSERT antes que los DELETE dentro de un mismo flush, así que
+    # hay que forzar el corte.
     rutina.ejercicios = []
     sesion.flush()
     rutina.ejercicios = [
@@ -165,13 +179,18 @@ def reemplazar(
 
 
 def archivar(
-    sesion: Session, user_id: str, rutina_id: int, archivar: bool
+    sesion: Session, user_id: str, rutina_id: int, archivada: bool
 ) -> Routine | None:
+    """Marca o desmarca el archivado de la rutina. Idempotente al marcar."""
     rutina = obtener(sesion, user_id, rutina_id)
     if rutina is None:
         return None
 
-    rutina.archived_at = datetime.now(timezone.utc) if archivar else None
+    if archivada:
+        if rutina.archived_at is None:
+            rutina.archived_at = datetime.now(timezone.utc)
+    else:
+        rutina.archived_at = None
     sesion.commit()
     sesion.refresh(rutina)
     return rutina

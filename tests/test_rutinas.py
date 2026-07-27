@@ -27,6 +27,12 @@ FICHAS = [
         "secondary_muscles": [], "gif_url": "videos/0043-c.gif",
         "instruction_steps": {"es": ["Paso uno."]},
     },
+    {
+        "id": "0051", "name": "dumbbell bench press", "body_part": "chest",
+        "equipment": "dumbbell", "target": "pectorals",
+        "secondary_muscles": [], "gif_url": "videos/0051-d.gif",
+        "instruction_steps": {"es": ["Paso uno."]},
+    },
 ]
 
 
@@ -222,7 +228,22 @@ def test_reemplazar_no_deja_ejercicios_huerfanos(catalogo):
 
     servicio.reemplazar(catalogo, USUARIO, creada.id, "Empuje A", ["0025"])
 
-    assert catalogo.query(RoutineExercise).count() == 1
+    assert (
+        catalogo.query(RoutineExercise)
+        .filter(RoutineExercise.routine_id == creada.id)
+        .count()
+        == 1
+    )
+
+
+def test_reemplazar_rechaza_un_ejercicio_inexistente(catalogo):
+    creada = servicio.crear(catalogo, USUARIO, "Empuje A", ["0025"])
+
+    with pytest.raises(servicio.EjercicioDesconocido):
+        servicio.reemplazar(catalogo, USUARIO, creada.id, "Empuje A", ["0025", "9999"])
+
+    detalle = servicio.detalle(catalogo, USUARIO, creada.id)
+    assert [e.id for e in detalle["ejercicios"]] == ["0025"]
 
 
 def test_reemplazar_una_rutina_ajena_no_hace_nada(catalogo):
@@ -255,7 +276,7 @@ def test_reemplazar_sana_una_rutina_con_ejercicios_borrados(catalogo):
 def test_archivar_la_saca_de_la_lista_sin_borrarla(catalogo):
     creada = servicio.crear(catalogo, USUARIO, "Empuje A", ["0025"])
 
-    servicio.archivar(catalogo, USUARIO, creada.id, archivar=True)
+    servicio.archivar(catalogo, USUARIO, creada.id, archivada=True)
 
     assert servicio.listar(catalogo, USUARIO) == []
     assert len(servicio.listar(catalogo, USUARIO, archivadas=True)) == 1
@@ -264,9 +285,9 @@ def test_archivar_la_saca_de_la_lista_sin_borrarla(catalogo):
 
 def test_desarchivar_la_devuelve_a_la_lista(catalogo):
     creada = servicio.crear(catalogo, USUARIO, "Empuje A", ["0025"])
-    servicio.archivar(catalogo, USUARIO, creada.id, archivar=True)
+    servicio.archivar(catalogo, USUARIO, creada.id, archivada=True)
 
-    servicio.archivar(catalogo, USUARIO, creada.id, archivar=False)
+    servicio.archivar(catalogo, USUARIO, creada.id, archivada=False)
 
     assert len(servicio.listar(catalogo, USUARIO)) == 1
     assert catalogo.get(Routine, creada.id).archived_at is None
@@ -275,7 +296,7 @@ def test_desarchivar_la_devuelve_a_la_lista(catalogo):
 def test_archivar_una_rutina_ajena_no_hace_nada(catalogo):
     ajena = _crear(catalogo, OTRO_USUARIO, "Ajena", ["0025"])
 
-    assert servicio.archivar(catalogo, USUARIO, ajena.id, archivar=True) is None
+    assert servicio.archivar(catalogo, USUARIO, ajena.id, archivada=True) is None
     assert catalogo.get(Routine, ajena.id).archived_at is None
 
 
@@ -364,3 +385,30 @@ def test_endpoint_archivar_y_desarchivar(client, catalogo, auth_headers):
 def test_los_endpoints_de_rutinas_exigen_token(client):
     assert client.get("/api/routines").status_code == 401
     assert client.post("/api/routines", json={}).status_code == 401
+
+
+def test_endpoint_crear_con_nombre_larguisimo_da_422(client, catalogo, auth_headers):
+    r = client.post(
+        "/api/routines",
+        json={"nombre": "R" * 200, "catalog_ids": ["0025"]},
+        headers=auth_headers,
+    )
+
+    assert r.status_code == 422
+
+
+def test_listar_no_mezcla_los_datos_de_dos_rutinas(catalogo):
+    """Dos rutinas activas del mismo usuario: cada fila cuenta lo suyo.
+
+    Además cubre la deduplicación de grupos: "Con dos de pecho" tiene dos
+    ejercicios que comparten body_part y debe mostrar "Pecho" una sola vez.
+    """
+    _crear(catalogo, USUARIO, "Con dos de pecho", ["0025", "0051"])
+    _crear(catalogo, USUARIO, "Variada", ["0033", "0043"])
+
+    filas = {f["nombre"]: f for f in servicio.listar(catalogo, USUARIO)}
+
+    assert filas["Con dos de pecho"]["total_ejercicios"] == 2
+    assert filas["Con dos de pecho"]["grupos_musculares"] == ["Pecho"]
+    assert filas["Variada"]["total_ejercicios"] == 2
+    assert filas["Variada"]["grupos_musculares"] == ["Brazos", "Hombros"]
