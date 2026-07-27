@@ -43,9 +43,21 @@ export default function EditorRutina() {
   // ejercicio cerca del borde no puede desplazar la lista automáticamente.
   const refScroll = useAnimatedRef<Animated.ScrollView>();
 
+  // DIAGNOSTICO TEMPORAL (Fase 5b): se quita cuando se cierre el bug del
+  // nombre que se pierde. Muestra si la pantalla se vuelve a montar al volver
+  // del catálogo, que es de lo que depende que el estado local sobreviva.
+  useEffect(() => {
+    console.log('[editor] MONTADO', { id, elegidos, ts });
+    return () => console.log('[editor] DESMONTADO', { id });
+  }, []);
+
   // Carga inicial desde el servidor, una sola vez.
   useEffect(() => {
     if (detalle.data) {
+      console.log('[editor] hidrata desde el servidor', {
+        nombreServidor: detalle.data.nombre,
+        ejercicios: detalle.data.ejercicios.length,
+      });
       setNombre(detalle.data.nombre);
       setLista(detalle.data.ejercicios);
     }
@@ -57,6 +69,8 @@ export default function EditorRutina() {
     if (!elegidos) return;
     const ids = elegidos.split(',').filter(Boolean);
     let cancelado = false;
+
+    console.log('[editor] vuelve del catálogo', { ids: ids.length, ts });
 
     Promise.all(ids.map((i) => apiGet<EjercicioResumen>(`/api/catalog/${i}`)))
       .then((fichas) => {
@@ -87,6 +101,7 @@ export default function EditorRutina() {
 
   function alGuardar() {
     const body = { nombre: nombre.trim(), catalog_ids: lista.map((e) => e.id) };
+    console.log('[editor] GUARDA', { esNueva, body });
     const mutacion = esNueva ? crear : guardar;
     mutacion.mutate(body, {
       onSuccess: () => router.back(),
@@ -167,8 +182,8 @@ export default function EditorRutina() {
           }}
           renderItem={({ item }) => (
             <View style={styles.fila}>
-              <Sortable.Handle>
-                <Text style={styles.asa}>⠿</Text>
+              <Sortable.Handle style={styles.asa}>
+                <Text style={styles.asaTexto}>⠿</Text>
               </Sortable.Handle>
               <Image
                 source={{ uri: item.gif_url }}
@@ -285,7 +300,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   quitar: { color: colors.danger, fontFamily: fonts.medium, fontSize: fontSize.base },
-  asa: { color: colors.muted, fontSize: 17, letterSpacing: 1, paddingHorizontal: spacing.xs },
+  // Con `customHandle`, el asa es el ÚNICO punto por donde se puede arrastrar:
+  // el resto de la fila no responde. Por eso necesita un área táctil de verdad
+  // (44x44) y no el tamaño del glifo, que daba unos 20x21.
+  asa: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  asaTexto: { color: colors.muted, fontSize: 20, letterSpacing: 1 },
   agregar: {
     borderWidth: 1,
     borderStyle: 'solid',
