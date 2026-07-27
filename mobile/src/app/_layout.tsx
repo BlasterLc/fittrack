@@ -10,6 +10,7 @@ import {
   Rubik_700Bold,
 } from '@expo-google-fonts/rubik';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SessionProvider, useSession } from '@/lib/session';
 import { queryClient } from '@/lib/query';
 import { colors } from '@/theme/tokens';
@@ -75,14 +76,20 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={tema}>
-      <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
-          <SessionProvider>
-            <RootNavigator />
-          </SessionProvider>
-        </QueryClientProvider>
-      </SafeAreaProvider>
-    </ThemeProvider>
+    // GestureHandlerRootView va afuera de todo y necesita flex: 1. Sin él, los
+    // gestos no se reconocen: react-native-gesture-handler lo exige como raíz.
+    // Recién hizo falta al llegar el arrastre de la Fase 5b, que es lo primero
+    // del proyecto que usa gestos.
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider value={tema}>
+        <SafeAreaProvider>
+          <QueryClientProvider client={queryClient}>
+            <SessionProvider>
+              <RootNavigator />
+            </SessionProvider>
+          </QueryClientProvider>
+        </SafeAreaProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
