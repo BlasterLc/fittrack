@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { View } from 'react-native';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { DarkTheme, Stack, ThemeProvider, useRouter, useSegments } from 'expo-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import {
   useFonts,
@@ -13,6 +13,22 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SessionProvider, useSession } from '@/lib/session';
 import { queryClient } from '@/lib/query';
 import { colors } from '@/theme/tokens';
+
+// Sin esto, React Navigation cae en su DefaultTheme, cuyo fondo es
+// rgb(242,242,242): un flash casi blanco en cada transición de pantalla,
+// porque contentStyle pinta el contenido pero no el contenedor de abajo.
+const tema = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    primary: colors.primary,
+    background: colors.bg,
+    card: colors.surface,
+    text: colors.ink,
+    border: colors.line,
+    notification: colors.accent,
+  },
+};
 
 // Redirige según haya sesión: sin sesión → login; con sesión dentro del
 // grupo de auth → a las tabs.
@@ -59,12 +75,14 @@ export default function RootLayout() {
   }
 
   return (
-    <SafeAreaProvider>
-      <QueryClientProvider client={queryClient}>
-        <SessionProvider>
-          <RootNavigator />
-        </SessionProvider>
-      </QueryClientProvider>
-    </SafeAreaProvider>
+    <ThemeProvider value={tema}>
+      <SafeAreaProvider>
+        <QueryClientProvider client={queryClient}>
+          <SessionProvider>
+            <RootNavigator />
+          </SessionProvider>
+        </QueryClientProvider>
+      </SafeAreaProvider>
+    </ThemeProvider>
   );
 }
