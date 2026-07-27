@@ -128,3 +128,37 @@ def detalle(sesion: Session, user_id: str, rutina_id: int) -> dict | None:
         "ejercicios": encontrados,
         "ejercicios_faltantes": len(ids) - len(encontrados),
     }
+
+
+def reemplazar(
+    sesion: Session,
+    user_id: str,
+    rutina_id: int,
+    nombre: str,
+    catalog_ids: list[str],
+) -> Routine | None:
+    """Deja la rutina exactamente como se pide. Devuelve None si no es del usuario.
+
+    Reemplaza la lista completa en vez de aplicar operaciones sueltas: el editor
+    manda el estado final y el servidor converge, igual que `ingestar()`. Evita
+    endpoints de "mover" o "quitar" que ningún otro cliente usaría.
+    """
+    rutina = obtener(sesion, user_id, rutina_id)
+    if rutina is None:
+        return None
+
+    limpio = _validar(sesion, nombre, catalog_ids)
+
+    rutina.nombre = limpio
+    # Las filas viejas se borran ANTES de insertar las nuevas: si un ejercicio
+    # sobrevive al reemplazo, insertarlo de nuevo chocaría con
+    # uq_rutina_ejercicio mientras la fila anterior sigue viva. SQLAlchemy no
+    # garantiza ese orden dentro de un mismo flush, así que se fuerza.
+    rutina.ejercicios = []
+    sesion.flush()
+    rutina.ejercicios = [
+        RoutineExercise(catalog_id=c, orden=i) for i, c in enumerate(catalog_ids)
+    ]
+    sesion.commit()
+    sesion.refresh(rutina)
+    return rutina

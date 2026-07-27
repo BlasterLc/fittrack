@@ -204,3 +204,49 @@ def test_detalle_de_una_rutina_cuyos_ejercicios_desaparecieron_todos(catalogo):
     assert detalle["nombre"] == "Fantasma"
     assert detalle["ejercicios"] == []
     assert detalle["ejercicios_faltantes"] == 2
+
+
+def test_reemplazar_quita_agrega_y_reordena_en_una_llamada(catalogo):
+    creada = servicio.crear(catalogo, USUARIO, "Empuje A", ["0025", "0033"])
+
+    servicio.reemplazar(catalogo, USUARIO, creada.id, "Empuje B", ["0043", "0025"])
+
+    detalle = servicio.detalle(catalogo, USUARIO, creada.id)
+    assert detalle["nombre"] == "Empuje B"
+    # 0033 se fue, 0043 entró, y 0025 cambió de posición.
+    assert [e.id for e in detalle["ejercicios"]] == ["0043", "0025"]
+
+
+def test_reemplazar_no_deja_ejercicios_huerfanos(catalogo):
+    creada = servicio.crear(catalogo, USUARIO, "Empuje A", ["0025", "0033", "0043"])
+
+    servicio.reemplazar(catalogo, USUARIO, creada.id, "Empuje A", ["0025"])
+
+    assert catalogo.query(RoutineExercise).count() == 1
+
+
+def test_reemplazar_una_rutina_ajena_no_hace_nada(catalogo):
+    ajena = _crear(catalogo, OTRO_USUARIO, "Ajena", ["0025"])
+
+    resultado = servicio.reemplazar(catalogo, USUARIO, ajena.id, "Robada", ["0033"])
+
+    assert resultado is None
+    assert catalogo.get(Routine, ajena.id).nombre == "Ajena"
+
+
+def test_reemplazar_aplica_las_mismas_reglas_que_crear(catalogo):
+    creada = servicio.crear(catalogo, USUARIO, "Empuje A", ["0025"])
+
+    with pytest.raises(servicio.RutinaInvalida):
+        servicio.reemplazar(catalogo, USUARIO, creada.id, "Empuje A", [])
+
+
+def test_reemplazar_sana_una_rutina_con_ejercicios_borrados(catalogo):
+    """El caso de §3.3 del spec: la rutina se cura al guardarla."""
+    rutina = _crear(catalogo, USUARIO, "Con hueco", ["0025", "9999"])
+
+    servicio.reemplazar(catalogo, USUARIO, rutina.id, "Sana", ["0025", "0033"])
+
+    detalle = servicio.detalle(catalogo, USUARIO, rutina.id)
+    assert detalle["ejercicios_faltantes"] == 0
+    assert [e.id for e in detalle["ejercicios"]] == ["0025", "0033"]
