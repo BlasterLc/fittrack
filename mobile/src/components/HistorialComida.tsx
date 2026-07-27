@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
   itemLinea: { color: colors.muted, fontFamily: fonts.regular, fontSize: fontSize.sm },
   acciones: { flexDirection: 'row', gap: spacing.xl, marginTop: spacing.sm },
   editar: { color: colors.primary, fontFamily: fonts.medium, fontSize: fontSize.base },
-  eliminar: { color: colors.accent, fontFamily: fonts.medium, fontSize: fontSize.base },
+  eliminar: { color: colors.danger, fontFamily: fonts.medium, fontSize: fontSize.base },
   mesAnterior: {
     paddingVertical: spacing.md,
     alignItems: 'center',

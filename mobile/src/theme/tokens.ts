@@ -7,6 +7,9 @@ export const colors = {
   muted: '#8a8d95',
   primary: '#5f74e4',
   accent: '#e0b341', // solo semántico
+  // Acciones que pierden datos. Separado de accent porque el ámbar ya lo usan
+  // los carbohidratos, y un color con dos significados no significa nada.
+  danger: '#e5484d',
   prot: '#5f74e4',
   carb: '#c18500',
   fat: '#00a38f',
