@@ -127,3 +127,80 @@ def test_listar_ignora_ejercicios_que_ya_no_estan_en_el_catalogo(catalogo):
 
     assert filas[0]["total_ejercicios"] == 1
     assert filas[0]["grupos_musculares"] == ["Pecho"]
+
+
+def test_crear_guarda_el_orden_recibido(catalogo):
+    rutina = servicio.crear(catalogo, USUARIO, "Empuje A", ["0033", "0025"])
+
+    assert rutina.nombre == "Empuje A"
+    assert [e.catalog_id for e in rutina.ejercicios] == ["0033", "0025"]
+    assert [e.orden for e in rutina.ejercicios] == [0, 1]
+
+
+def test_crear_rechaza_un_ejercicio_inexistente(catalogo):
+    with pytest.raises(servicio.EjercicioDesconocido) as error:
+        servicio.crear(catalogo, USUARIO, "Empuje A", ["0025", "9999"])
+
+    assert "9999" in str(error.value)
+
+
+def test_crear_rechaza_nombre_vacio(catalogo):
+    with pytest.raises(servicio.RutinaInvalida):
+        servicio.crear(catalogo, USUARIO, "   ", ["0025"])
+
+
+def test_crear_rechaza_una_rutina_sin_ejercicios(catalogo):
+    with pytest.raises(servicio.RutinaInvalida):
+        servicio.crear(catalogo, USUARIO, "Empuje A", [])
+
+
+def test_crear_rechaza_ejercicios_repetidos(catalogo):
+    with pytest.raises(servicio.RutinaInvalida):
+        servicio.crear(catalogo, USUARIO, "Empuje A", ["0025", "0025"])
+
+
+def test_crear_recorta_los_espacios_del_nombre(catalogo):
+    rutina = servicio.crear(catalogo, USUARIO, "  Empuje A  ", ["0025"])
+    assert rutina.nombre == "Empuje A"
+
+
+def test_detalle_trae_los_datos_del_catalogo_en_orden(catalogo):
+    creada = servicio.crear(catalogo, USUARIO, "Empuje A", ["0033", "0025"])
+
+    detalle = servicio.detalle(catalogo, USUARIO, creada.id)
+
+    assert detalle["nombre"] == "Empuje A"
+    assert [e.id for e in detalle["ejercicios"]] == ["0033", "0025"]
+    assert detalle["ejercicios"][0].body_part_es == "Hombros"
+
+
+def test_detalle_de_otro_usuario_no_existe(catalogo):
+    ajena = _crear(catalogo, OTRO_USUARIO, "Ajena", ["0025"])
+
+    assert servicio.detalle(catalogo, USUARIO, ajena.id) is None
+
+
+def test_detalle_omite_los_ejercicios_borrados_del_catalogo(catalogo):
+    rutina = _crear(catalogo, USUARIO, "Con hueco", ["0025", "9999"])
+
+    detalle = servicio.detalle(catalogo, USUARIO, rutina.id)
+
+    assert [e.id for e in detalle["ejercicios"]] == ["0025"]
+    # El editor usa esta diferencia para avisar en una línea.
+    assert detalle["ejercicios_faltantes"] == 1
+
+
+def test_detalle_de_una_rutina_cuyos_ejercicios_desaparecieron_todos(catalogo):
+    """Caso límite de §3.3 del spec: no puede dar 404 ni reventar.
+
+    La regla de "nunca vacía" se apoya en la validación al guardar, no en una
+    restricción de base de datos, así que este estado es alcanzable.
+    """
+    rutina = _crear(catalogo, USUARIO, "Fantasma", ["9998", "9999"])
+
+    detalle = servicio.detalle(catalogo, USUARIO, rutina.id)
+
+    assert detalle is not None
+    assert detalle["nombre"] == "Fantasma"
+    assert detalle["ejercicios"] == []
+    assert detalle["ejercicios_faltantes"] == 2
