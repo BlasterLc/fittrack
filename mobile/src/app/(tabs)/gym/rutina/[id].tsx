@@ -154,6 +154,10 @@ export default function EditorRutina() {
           data={lista}
           keyExtractor={(e) => e.id}
           rowGap={0}
+          // Sin esto, `Sortable.Handle` lanza en tiempo de ejecución: la
+          // biblioteca solo arma el contexto del asa si la grilla lo declara.
+          // Con el asa, el resto de la fila queda libre para tocarse.
+          customHandle
           // La grilla vive dentro del scroll de arriba: sin `scrollableRef`
           // no puede desplazar la lista mientras se arrastra cerca del borde.
           scrollableRef={refScroll}
