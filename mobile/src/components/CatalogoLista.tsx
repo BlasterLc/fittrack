@@ -20,8 +20,12 @@ import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
 // tocar nada de acá adentro. Por eso no hay checkboxes ni prop `modo`.
 export function CatalogoLista({
   onSeleccionar,
+  seleccionados,
 }: {
   onSeleccionar: (ejercicio: EjercicioResumen) => void;
+  // Cuando llega, cada fila dibuja un check. Cuando no, el componente se
+  // comporta igual que en la pestaña Catálogo: sin marcas, sin estado.
+  seleccionados?: Set<string>;
 }) {
   const [texto, setTexto] = useState('');
   const [grupo, setGrupo] = useState<string | null>(null);
@@ -82,7 +86,13 @@ export function CatalogoLista({
           data={ejercicios}
           keyExtractor={(e) => e.id}
           ListHeaderComponent={<Text style={styles.total}>{total} ejercicios</Text>}
-          renderItem={({ item }) => <Fila ejercicio={item} onPress={() => onSeleccionar(item)} />}
+          renderItem={({ item }) => (
+            <Fila
+              ejercicio={item}
+              onPress={() => onSeleccionar(item)}
+              marcado={seleccionados?.has(item.id)}
+            />
+          )}
           onEndReached={() => {
             if (busqueda.hasNextPage && !busqueda.isFetchingNextPage) {
               busqueda.fetchNextPage();
@@ -105,7 +115,15 @@ export function CatalogoLista({
   );
 }
 
-function Fila({ ejercicio, onPress }: { ejercicio: EjercicioResumen; onPress: () => void }) {
+function Fila({
+  ejercicio,
+  onPress,
+  marcado,
+}: {
+  ejercicio: EjercicioResumen;
+  onPress: () => void;
+  marcado?: boolean;
+}) {
   return (
     <Pressable style={styles.fila} onPress={onPress}>
       <Image
@@ -124,6 +142,11 @@ function Fila({ ejercicio, onPress }: { ejercicio: EjercicioResumen; onPress: ()
           {ejercicio.body_part_es} · {ejercicio.equipment_es}
         </Text>
       </View>
+      {marcado !== undefined && (
+        <View style={[styles.check, marcado && styles.checkMarcado]}>
+          {marcado && <Text style={styles.checkTexto}>✓</Text>}
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -167,4 +190,15 @@ const styles = StyleSheet.create({
   vacioTitulo: { color: colors.muted, fontFamily: fonts.regular, fontSize: fontSize.base, textAlign: 'center' },
   accion: { color: colors.primary, fontFamily: fonts.semibold, fontSize: fontSize.base },
   pie: { paddingVertical: spacing.lg },
+  check: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: colors.line,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkMarcado: { backgroundColor: colors.primary, borderColor: colors.primary },
+  checkTexto: { color: colors.ink, fontFamily: fonts.bold, fontSize: 12 },
 });
