@@ -6,12 +6,12 @@ import { HojaOpciones } from '@/components/HojaOpciones';
 import { CampoFecha } from '@/components/CampoFecha';
 import { MetasResumen } from '@/components/MetasResumen';
 import { Fila, FilaNumero, Tarjeta } from '@/components/CamposPerfil';
-import { useGuardarPerfil, usePrevisualizacion } from '@/hooks/usePerfil';
+import { useGuardarPerfil, usePerfil, usePrevisualizacion } from '@/hooks/usePerfil';
 import {
-  FICHA_VACIA,
   OPCIONES_ACTIVIDAD,
   OPCIONES_OBJETIVO,
   OPCIONES_SEXO,
+  borradorDesde,
   etiquetaDe,
   fechaLegible,
   type FichaBorrador,
@@ -20,10 +20,63 @@ import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
 
 const ULTIMO_PASO = 4;
 
+/**
+ * El asistente parte SIEMPRE de la ficha que ya está guardada.
+ *
+ * El PUT converge: un campo en null borra el valor guardado. Si el asistente
+ * arrancara vacío, cualquier "Guardar" —incluido el de quien entra a cambiar
+ * solo el nombre y omite el resto— mandaría sexo, fecha, altura, peso,
+ * actividad, objetivo y metas escritas a mano en null, y borraría la ficha
+ * entera sin manera de deshacerlo. Sembrando desde el perfil, un dato que el
+ * usuario no toca viaja con el valor que ya tenía.
+ *
+ * Por eso los pasos no se dibujan hasta tener el perfil: sembrar con datos a
+ * medio cargar es el mismo borrado con otro disfraz. Si el perfil no se puede
+ * cargar, no se entra: se ofrece reintentar.
+ */
 export default function Asistente() {
   const router = useRouter();
+  const { data: perfil, isError, refetch } = usePerfil();
+
+  if (perfil) return <AsistentePasos inicial={borradorDesde(perfil)} />;
+
+  return (
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      <View style={styles.barra}>
+        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Atrás">
+          <Text style={styles.volver}>‹ Atrás</Text>
+        </Pressable>
+      </View>
+      <View style={styles.estado}>
+        {isError ? (
+          <>
+            <Text style={styles.aviso}>
+              No pudimos cargar tu ficha. Revisa tu conexión: sin ella no podemos completarla sin
+              arriesgar lo que ya tienes guardado.
+            </Text>
+            <Pressable
+              style={styles.botonSecundario}
+              onPress={() => refetch()}
+              accessibilityRole="button"
+            >
+              <Text style={styles.botonSecundarioTexto}>Reintentar</Text>
+            </Pressable>
+          </>
+        ) : (
+          <ActivityIndicator color={colors.primary} />
+        )}
+      </View>
+    </SafeAreaView>
+  );
+}
+
+function AsistentePasos({ inicial }: { inicial: FichaBorrador }) {
+  const router = useRouter();
   const [paso, setPaso] = useState(1);
-  const [ficha, setFicha] = useState<FichaBorrador>(FICHA_VACIA);
+  // Una sola vez, al montar. Nada de hidratar por efecto: ese efecto vuelve a
+  // correr con cada refetch de ['perfil'] —y toda mutación invalida— y pisaría
+  // lo que el usuario está escribiendo.
+  const [ficha, setFicha] = useState<FichaBorrador>(inicial);
   const [hoja, setHoja] = useState<'sexo' | 'actividad' | 'objetivo' | null>(null);
 
   const guardar = useGuardarPerfil();
@@ -138,20 +191,52 @@ export default function Asistente() {
         {paso === ULTIMO_PASO + 1 && (
           <>
             <Text style={styles.h1}>Tus metas</Text>
-            {previa.isLoading && <ActivityIndicator color={colors.primary} />}
-            {previa.data?.metas ? (
+            {/* Los tres estados son excluyentes. Antes faltaba el de error y
+                una caída de red se leía como "faltan datos", que es mentira:
+                los datos estaban completos y no había forma de reintentar. */}
+            {previa.isFetching ? (
+              <ActivityIndicator color={colors.primary} />
+            ) : previa.isError ? (
+              <>
+                {/* Sin decir por qué falló: puede ser la red o un dato fuera
+                    de rango. El motivo lo dice el backend en su `detail` y va
+                    tal cual, como en el resto de la app. */}
+                <Text style={styles.aviso}>No pudimos calcular tus metas ahora.</Text>
+                <Text style={styles.avisoDetalle}>{(previa.error as Error).message}</Text>
+                <Text style={styles.avisoDetalle}>
+                  Puedes guardar igual: tus datos no se pierden y las metas se calculan solas
+                  cuando esto vuelva a funcionar.
+                </Text>
+                <Pressable
+                  style={styles.botonSecundario}
+                  onPress={() => previa.refetch()}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.botonSecundarioTexto}>Reintentar</Text>
+                </Pressable>
+              </>
+            ) : previa.data?.metas ? (
               <MetasResumen
                 metas={previa.data.metas}
                 mantenimiento={previa.data.mantenimiento}
                 sonManuales={false}
               />
             ) : (
-              !previa.isLoading && (
-                <Text style={styles.ayuda}>
-                  Faltan datos para calcular tus metas. Puedes guardar igual y completarlos
-                  después: la app sigue funcionando con una meta genérica.
-                </Text>
-              )
+              <Text style={styles.ayuda}>
+                Faltan datos para calcular tus metas. Puedes guardar igual y completarlos después:
+                la app sigue funcionando con una meta genérica.
+              </Text>
+            )}
+
+            {/* Ahora que el asistente conserva las metas escritas a mano en vez
+                de borrarlas, hay que decir que son ellas las que se van a
+                seguir viendo: esta pantalla muestra el cálculo, no lo que
+                quedará en el perfil. */}
+            {ficha.metas_manuales && (
+              <Text style={styles.nota}>
+                Esto es lo que dicen tus datos. Seguirás viendo las metas que escribiste a mano
+                hasta que vuelvas al cálculo desde tu perfil.
+              </Text>
             )}
           </>
         )}
@@ -203,6 +288,47 @@ const styles = StyleSheet.create({
   volver: { color: colors.primary, fontFamily: fonts.medium, fontSize: fontSize.base },
   omitir: { color: colors.muted, fontFamily: fonts.medium, fontSize: fontSize.base },
   cuerpo: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xl },
+  estado: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl },
+  // Ámbar: es la convención del proyecto para el texto de error (login.tsx,
+  // (tabs)/index.tsx, RegistroComida.tsx). El rojo queda para lo que pierde
+  // datos.
+  aviso: {
+    color: colors.accent,
+    fontFamily: fonts.regular,
+    fontSize: fontSize.base,
+    lineHeight: 22,
+    marginBottom: spacing.sm,
+  },
+  avisoDetalle: {
+    color: colors.muted,
+    fontFamily: fonts.regular,
+    fontSize: fontSize.sm,
+    lineHeight: 19,
+    marginBottom: spacing.sm,
+  },
+  botonSecundario: {
+    marginTop: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 10,
+    minHeight: 48,
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  botonSecundarioTexto: {
+    color: colors.primary,
+    fontFamily: fonts.medium,
+    fontSize: fontSize.base,
+  },
+  nota: {
+    color: colors.muted,
+    fontFamily: fonts.regular,
+    fontSize: fontSize.sm,
+    lineHeight: 19,
+    marginTop: spacing.lg,
+  },
   progreso: {
     color: colors.muted,
     fontFamily: fonts.medium,

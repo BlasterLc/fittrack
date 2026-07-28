@@ -46,17 +46,14 @@ export type FichaBorrador = {
   metas_manuales: Metas | null;
 };
 
-export const FICHA_VACIA: FichaBorrador = {
-  nombre: null,
-  sexo: null,
-  fecha_nacimiento: null,
-  altura_cm: null,
-  peso_kg: null,
-  actividad: null,
-  objetivo: null,
-  metas_manuales: null,
-};
-
+/**
+ * La ficha con la que se abre cualquier pantalla de edición.
+ *
+ * Siempre se parte del perfil guardado, nunca de una ficha vacía: el PUT
+ * converge y un campo en null borra el valor. Por eso acá no hay una constante
+ * FICHA_VACIA; existía y el asistente arrancaba con ella, y guardar borraba la
+ * ficha entera. Para el usuario sin perfil el GET ya devuelve todo en null.
+ */
 export function borradorDesde(perfil: Perfil): FichaBorrador {
   return {
     nombre: perfil.nombre,
