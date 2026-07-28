@@ -186,10 +186,22 @@ def test_guardar_rechaza_datos_invalidos(db_session, campo, valor):
 
 
 def test_guardar_rechaza_una_fecha_de_nacimiento_futura(db_session):
+    """Se afirma el mensaje, no solo que falle.
+
+    Una fecha futura da edad negativa, así que el rango de edad la rechazaría
+    igual: sin mirar el mensaje, el test pasaría aunque el chequeo de fecha
+    futura no existiera, y el usuario recibiría un error equivocado.
+    """
     manana = dt.date.today() + dt.timedelta(days=1)
 
-    with pytest.raises(servicio.PerfilInvalido):
+    with pytest.raises(servicio.PerfilInvalido, match="no puede ser futura"):
         servicio.guardar(db_session, USUARIO, {**DATOS_COMPLETOS, "fecha_nacimiento": manana})
+
+
+def test_un_nombre_en_blanco_es_lo_mismo_que_no_tener_nombre(db_session):
+    guardado = servicio.guardar(db_session, USUARIO, {**DATOS_COMPLETOS, "nombre": "   "})
+
+    assert guardado.nombre is None
 
 
 def test_guardar_rechaza_una_edad_fuera_de_rango(db_session):

@@ -103,7 +103,8 @@ def guardar(sesion: Session, user_id: str, datos: dict) -> Profile:
         perfil = Profile(user_id=user_id)
         sesion.add(perfil)
 
-    perfil.nombre = datos.get("nombre")
+    # Un nombre en blanco es lo mismo que no tener nombre, igual que en rutinas.
+    perfil.nombre = (datos.get("nombre") or "").strip() or None
     perfil.sexo = datos.get("sexo")
     perfil.fecha_nacimiento = datos.get("fecha_nacimiento")
     perfil.altura_cm = datos.get("altura_cm")
