@@ -8,7 +8,8 @@ from api.auth import get_current_user
 from api.config import Config
 from api.database import get_db
 from api.models import Meal, MealItem
-from api.schemas import Calorias, Macros, ResumenDia
+from api.schemas import Calorias, Macros, MetasMacros, ResumenDia
+from api.services import perfil as servicio_perfil
 
 router = APIRouter(
     prefix="/api",
@@ -38,16 +39,31 @@ def resumen_del_dia(
         )
     ).all()
 
+    resuelto = servicio_perfil.resolver(db, user_id)
+    # Sin perfil completo se usa la constante global, que es como funcionaba
+    # antes: nadie queda peor que antes de tener metas propias.
+    meta_calorias = resuelto.metas.calorias if resuelto.metas else Config().calorie_goal
+    metas_macros = (
+        MetasMacros(
+            prot=resuelto.metas.prot_g,
+            carb=resuelto.metas.carb_g,
+            fat=resuelto.metas.fat_g,
+        )
+        if resuelto.metas
+        else None
+    )
+
     return ResumenDia(
         calorias=Calorias(
             consumidas=sum(f.calorias for f in filas),
-            meta=Config().calorie_goal,
+            meta=meta_calorias,
         ),
         macros=Macros(
             prot=sum(f.prot_g for f in filas),
             carb=sum(f.carbs_g for f in filas),
             fat=sum(f.fat_g for f in filas),
         ),
+        metas_macros=metas_macros,
         entrenamiento=None,
         peso=None,
     )

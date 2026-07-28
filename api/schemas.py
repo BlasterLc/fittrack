@@ -62,6 +62,12 @@ class Macros(BaseModel):
     fat: float
 
 
+class MetasMacros(BaseModel):
+    prot: int
+    carb: int
+    fat: int
+
+
 class EntrenamientoResumen(BaseModel):
     series: int
     duracion_min: int
@@ -75,6 +81,9 @@ class PesoResumen(BaseModel):
 class ResumenDia(BaseModel):
     calorias: Calorias
     macros: Macros
+    # Null si el perfil está incompleto: ahí los macros quedan informativos,
+    # como antes de que existieran las metas propias.
+    metas_macros: MetasMacros | None
     entrenamiento: EntrenamientoResumen | None
     peso: PesoResumen | None
 

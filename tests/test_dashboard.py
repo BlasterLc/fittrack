@@ -52,3 +52,54 @@ def test_dashboard_ignora_comidas_de_dias_anteriores(client, auth_headers, db_se
 
     cuerpo = client.get("/api/dashboard", headers=auth_headers).json()
     assert cuerpo["calorias"]["consumidas"] == 300
+
+
+def test_dashboard_usa_las_metas_del_perfil(client, auth_headers, db_session):
+    import datetime as dt
+
+    from api.services import perfil as servicio_perfil
+
+    servicio_perfil.guardar(
+        db_session,
+        "11111111-1111-1111-1111-111111111111",
+        {
+            "nombre": "Matías",
+            "sexo": "hombre",
+            "fecha_nacimiento": dt.date(1998, 3, 14),
+            "altura_cm": 176,
+            "peso_kg": 78.0,
+            "actividad": "moderado",
+            "objetivo": "ganar",
+        },
+    )
+
+    cuerpo = client.get("/api/dashboard", headers=auth_headers).json()
+
+    assert cuerpo["calorias"]["meta"] > 2000
+    assert cuerpo["metas_macros"]["prot"] == 140
+
+
+def test_dashboard_sin_perfil_cae_a_la_meta_generica(client, auth_headers, monkeypatch):
+    """Nadie queda peor que antes: sin perfil, todo funciona como hasta ahora."""
+    monkeypatch.setenv("CALORIE_GOAL", "2200")
+
+    cuerpo = client.get("/api/dashboard", headers=auth_headers).json()
+
+    assert cuerpo["calorias"]["meta"] == 2200
+    assert cuerpo["metas_macros"] is None
+
+
+def test_dashboard_con_perfil_incompleto_cae_a_la_meta_generica(
+    client, auth_headers, db_session, monkeypatch
+):
+    from api.services import perfil as servicio_perfil
+
+    monkeypatch.setenv("CALORIE_GOAL", "2200")
+    servicio_perfil.guardar(
+        db_session, "11111111-1111-1111-1111-111111111111", {"nombre": "Matías"}
+    )
+
+    cuerpo = client.get("/api/dashboard", headers=auth_headers).json()
+
+    assert cuerpo["calorias"]["meta"] == 2200
+    assert cuerpo["metas_macros"] is None
