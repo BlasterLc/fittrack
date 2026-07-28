@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { EncabezadoPantalla } from '@/components/EncabezadoPantalla';
 import { RegistroComida } from '@/components/RegistroComida';
 import { HistorialComida } from '@/components/HistorialComida';
 import { Segmentado } from '@/components/Segmentado';
-import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
+import { colors, spacing } from '@/theme/tokens';
 
 type Segmento = 'registrar' | 'historial';
 
@@ -13,8 +14,8 @@ export default function Comida() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.h1}>Comida</Text>
+      <EncabezadoPantalla titulo="Comida" />
+      <View style={styles.segmentoCaja}>
         <Segmentado
           opciones={[
             { valor: 'registrar', label: 'Registrar' },
@@ -36,6 +37,5 @@ export default function Comida() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
-  header: { paddingHorizontal: spacing.xl, paddingTop: spacing.md, gap: spacing.md },
-  h1: { color: colors.ink, fontFamily: fonts.bold, fontSize: fontSize.xxl },
+  segmentoCaja: { paddingHorizontal: spacing.xl, marginBottom: spacing.md },
 });

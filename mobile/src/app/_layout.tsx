@@ -59,6 +59,7 @@ function RootNavigator() {
           _layout.tsx, esto vuelve a ser "(auth)". */}
       <Stack.Screen name="(auth)/login" />
       <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="perfil" />
     </Stack>
   );
 }

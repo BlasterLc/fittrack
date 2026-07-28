@@ -1,6 +1,6 @@
-import { View, Text, StyleSheet, ActivityIndicator, Pressable, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { supabase } from '@/lib/supabase';
+import { EncabezadoPantalla } from '@/components/EncabezadoPantalla';
 import { useDashboard } from '@/hooks/useDashboard';
 import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
 
@@ -9,12 +9,7 @@ export default function Hoy() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.h1}>Hoy</Text>
-        <Pressable onPress={() => supabase.auth.signOut()} hitSlop={12}>
-          <Text style={styles.salir}>Salir</Text>
-        </Pressable>
-      </View>
+      <EncabezadoPantalla titulo="Hoy" />
 
       {isLoading && <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xl }} />}
       {isError && <Text style={styles.error}>No pudimos cargar tu día.</Text>}
@@ -69,16 +64,6 @@ function Fila({
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
-  },
-  h1: { color: colors.ink, fontFamily: fonts.bold, fontSize: fontSize.xxl },
-  salir: { color: colors.muted, fontFamily: fonts.medium, fontSize: fontSize.base },
   body: { paddingHorizontal: spacing.xl },
   fila: {
     flexDirection: 'row',

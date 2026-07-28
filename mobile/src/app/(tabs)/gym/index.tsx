@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { EncabezadoPantalla } from '@/components/EncabezadoPantalla';
 import { CatalogoLista } from '@/components/CatalogoLista';
 import { RutinasLista } from '@/components/RutinasLista';
 import { Segmentado } from '@/components/Segmentado';
-import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
+import { colors, spacing } from '@/theme/tokens';
 
 type Vista = 'rutinas' | 'catalogo';
 
@@ -15,7 +16,7 @@ export default function Gym() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <Text style={styles.h1}>Gym</Text>
+      <EncabezadoPantalla titulo="Gym" />
       <View style={styles.segmentoCaja}>
         <Segmentado
           opciones={[
@@ -37,13 +38,5 @@ export default function Gym() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
-  h1: {
-    color: colors.ink,
-    fontFamily: fonts.bold,
-    fontSize: fontSize.xxl,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
-  },
   segmentoCaja: { paddingHorizontal: spacing.xl, marginBottom: spacing.md },
 });
