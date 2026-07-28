@@ -22,6 +22,9 @@ los cuatro números nunca se contradicen entre sí.
 import datetime as dt
 from dataclasses import dataclass
 
+# Constante de Mifflin-St Jeor segun el sexo.
+AJUSTE_SEXO = {"hombre": 5, "mujer": -161}
+
 FACTORES_ACTIVIDAD = {"poco": 1.2, "moderado": 1.55, "alto": 1.725}
 
 # El deficit es mas agresivo que el superavit a proposito: subir de peso
@@ -60,7 +63,7 @@ def edad_en(fecha_nacimiento: dt.date, hoy: dt.date) -> int:
 
 def _basal(sexo: str, peso_kg: float, altura_cm: int, edad: int) -> float:
     comun = 10 * peso_kg + 6.25 * altura_cm - 5 * edad
-    return comun + 5 if sexo == "hombre" else comun - 161
+    return comun + AJUSTE_SEXO[sexo]
 
 
 def calcular(
@@ -87,7 +90,10 @@ def calcular(
     prot_g = round(PROTEINA_POR_KG[objetivo] * peso_kg)
     fat_g = round(calorias * PORCENTAJE_GRASAS / KCAL_POR_GRAMO["fat"])
     carb_kcal = calorias - prot_g * KCAL_POR_GRAMO["prot"] - fat_g * KCAL_POR_GRAMO["fat"]
-    carb_g = round(carb_kcal / KCAL_POR_GRAMO["carb"])
+    # En un perfil extremo (mucha proteina por kilo con muy pocas calorias)
+    # la cascada puede restar mas de lo que hay: un gramaje negativo no es
+    # un valor valido para mostrar, asi que se pone un piso en cero.
+    carb_g = max(0, round(carb_kcal / KCAL_POR_GRAMO["carb"]))
 
     return Metas(
         calorias=calorias,
