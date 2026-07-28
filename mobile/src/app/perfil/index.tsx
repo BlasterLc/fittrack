@@ -49,12 +49,32 @@ export default function Perfil() {
   // escribiendo. Acá la única fuente de verdad es la consulta.
   const cola = useRef<Promise<void>>(Promise.resolve());
 
+  // "Tus datos" guarda solo, sin botón. Sin una señal, cambiar un dato es
+  // indistinguible de no haber hecho nada: Matías lo pidió probándolo. La
+  // confirmación se apaga sola porque un "Guardado" permanente deja de leerse
+  // y ya no distingue el guardado de recién del de hace cinco minutos.
+  const [confirmado, setConfirmado] = useState(false);
+  const relojConfirmacion = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (relojConfirmacion.current) clearTimeout(relojConfirmacion.current);
+    };
+  }, []);
+
+  function confirmar() {
+    setConfirmado(true);
+    if (relojConfirmacion.current) clearTimeout(relojConfirmacion.current);
+    relojConfirmacion.current = setTimeout(() => setConfirmado(false), 2000);
+  }
+
   function guardarCambio(cambios: Partial<FichaBorrador>, alGuardar?: () => void) {
     cola.current = cola.current
       .then(async () => {
         const actual = cliente.getQueryData<PerfilGuardado>(['perfil']);
         if (!actual) return;
         await guardar.mutateAsync({ ...borradorDesde(actual), ...cambios });
+        confirmar();
         alGuardar?.();
       })
       .catch(() => {
@@ -237,7 +257,14 @@ export default function Perfil() {
             </View>
           )}
 
-          <Text style={[styles.seccion, styles.seccionSiguiente]}>Tus datos</Text>
+          <View style={[styles.seccionFila, styles.seccionSiguiente]}>
+            <Text style={[styles.seccion, styles.seccionEnFila]}>Tus datos</Text>
+            {(guardar.isPending || confirmado) && (
+              <Text style={styles.estadoGuardado} accessibilityLiveRegion="polite">
+                {guardar.isPending ? 'Guardando…' : 'Guardado'}
+              </Text>
+            )}
+          </View>
 
           <Fila
             etiqueta="Nombre"
@@ -366,6 +393,20 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   seccionSiguiente: { marginTop: spacing.xxl },
+  seccionFila: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
+  // El margen pasa a la fila: si lo dejara acá, el texto y el estado quedarían
+  // desalineados por la altura del margen.
+  seccionEnFila: { marginBottom: 0 },
+  estadoGuardado: {
+    color: colors.muted,
+    fontFamily: fonts.regular,
+    fontSize: fontSize.sm,
+  },
   vacio: { gap: spacing.md },
   vacioTitulo: { color: colors.ink, fontFamily: fonts.semibold, fontSize: fontSize.lg },
   vacioTexto: {
