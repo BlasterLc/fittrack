@@ -361,3 +361,64 @@ def test_con_metas_manuales_y_perfil_a_medias_el_mantenimiento_viaja_en_null(cli
 def test_los_endpoints_de_perfil_exigen_token(client):
     assert client.get("/api/profile").status_code == 401
     assert client.put("/api/profile", json={}).status_code == 401
+
+
+def test_preview_devuelve_las_metas_sin_guardar(client, auth_headers):
+    r = client.post("/api/profile/preview", json=CUERPO_COMPLETO, headers=auth_headers)
+
+    assert r.status_code == 200
+    cuerpo = r.json()
+    assert cuerpo["completo"] is True
+    assert cuerpo["metas"]["calorias"] == 2980
+    assert cuerpo["mantenimiento"] == 2705
+
+    # Lo importante: no persistio nada.
+    assert client.get("/api/profile", headers=auth_headers).json()["nombre"] is None
+
+
+def test_preview_con_datos_incompletos_no_da_metas(client, auth_headers):
+    r = client.post(
+        "/api/profile/preview", json={**CUERPO_COMPLETO, "actividad": None}, headers=auth_headers
+    )
+
+    assert r.status_code == 200
+    assert r.json()["completo"] is False
+    assert r.json()["metas"] is None
+    assert r.json()["mantenimiento"] is None
+
+
+def test_preview_no_pisa_un_perfil_ya_guardado(client, auth_headers):
+    client.put("/api/profile", json=CUERPO_COMPLETO, headers=auth_headers)
+
+    client.post(
+        "/api/profile/preview", json={**CUERPO_COMPLETO, "peso_kg": 95.0}, headers=auth_headers
+    )
+
+    assert client.get("/api/profile", headers=auth_headers).json()["peso_kg"] == 78.0
+
+
+def test_preview_ignora_las_metas_manuales(client, auth_headers):
+    """La vista previa es del calculo: para eso se la consulta."""
+    r = client.post(
+        "/api/profile/preview",
+        json={
+            **CUERPO_COMPLETO,
+            "metas_manuales": {"calorias": 2500, "prot_g": 150, "carb_g": 300, "fat_g": 70},
+        },
+        headers=auth_headers,
+    )
+
+    assert r.json()["metas"]["calorias"] == 2980
+
+
+def test_preview_rechaza_datos_invalidos(client, auth_headers):
+    r = client.post(
+        "/api/profile/preview", json={**CUERPO_COMPLETO, "altura_cm": 300}, headers=auth_headers
+    )
+
+    assert r.status_code == 422
+    assert isinstance(r.json()["detail"], str)
+
+
+def test_preview_exige_token(client):
+    assert client.post("/api/profile/preview", json={}).status_code == 401

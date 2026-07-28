@@ -179,6 +179,14 @@ class PerfilOut(BaseModel):
     mantenimiento: int | None
 
 
+class PrevisualizacionOut(BaseModel):
+    """Las metas de una ficha que todavía no se guardó."""
+
+    completo: bool
+    metas: MetasOut | None
+    mantenimiento: int | None
+
+
 class MetasManualesIn(BaseModel):
     calorias: int
     prot_g: int

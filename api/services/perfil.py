@@ -171,3 +171,27 @@ def resolver(sesion: Session, user_id: str, hoy: dt.date | None = None) -> Perfi
         hoy=hoy,
     )
     return PerfilResuelto(perfil=perfil, metas=calculadas, completo=True, son_manuales=False)
+
+
+def previsualizar(datos: dict, hoy: dt.date | None = None) -> calculo.Metas | None:
+    """Las metas que darían estos datos, sin tocar la base.
+
+    Devuelve None si falta alguno de los seis datos del cálculo, igual que
+    `resolver`. Ignora `metas_manuales` a propósito: quien consulta la vista
+    previa quiere ver qué da el cálculo, que es justamente lo que las metas
+    escritas a mano tapan.
+    """
+    _validar(datos)
+
+    if any(datos.get(campo) is None for campo in CAMPOS_DEL_CALCULO):
+        return None
+
+    return calculo.calcular(
+        sexo=datos["sexo"],
+        fecha_nacimiento=datos["fecha_nacimiento"],
+        altura_cm=datos["altura_cm"],
+        peso_kg=datos["peso_kg"],
+        actividad=datos["actividad"],
+        objetivo=datos["objetivo"],
+        hoy=hoy,
+    )

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from api.auth import get_current_user
 from api.database import get_db
-from api.schemas import GuardarPerfilRequest, MetasOut, PerfilOut
+from api.schemas import GuardarPerfilRequest, MetasOut, PerfilOut, PrevisualizacionOut
 from api.services import perfil as servicio
 
 router = APIRouter(
@@ -70,3 +70,34 @@ def guardar(
     except servicio.PerfilInvalido as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     return _armar_respuesta(servicio.resolver(db, user_id))
+
+
+@router.post("/preview", response_model=PrevisualizacionOut)
+def previsualizar(
+    body: GuardarPerfilRequest,
+    user_id: str = Depends(get_current_user),
+) -> PrevisualizacionOut:
+    """Calcula sin persistir. No recibe sesión de base a propósito.
+
+    No depende de `get_db` porque no toca la base: si algún día alguien le
+    agrega una consulta, el tipo lo obliga a declararla y eso se ve en la
+    revisión.
+    """
+    try:
+        metas = servicio.previsualizar(body.model_dump())
+    except servicio.PerfilInvalido as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+    if metas is None:
+        return PrevisualizacionOut(completo=False, metas=None, mantenimiento=None)
+
+    return PrevisualizacionOut(
+        completo=True,
+        metas=MetasOut(
+            calorias=metas.calorias,
+            prot_g=metas.prot_g,
+            carb_g=metas.carb_g,
+            fat_g=metas.fat_g,
+        ),
+        mantenimiento=metas.mantenimiento,
+    )
