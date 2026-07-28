@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Pressable, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Pressable, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { HojaOpciones } from '@/components/HojaOpciones';
@@ -8,6 +8,7 @@ import { MetasResumen } from '@/components/MetasResumen';
 import { Fila, FilaNumero } from '@/components/CamposPerfil';
 import { useGuardarPerfil, usePerfil } from '@/hooks/usePerfil';
 import { useDebounce } from '@/hooks/useDebounce';
+import { supabase } from '@/lib/supabase';
 import {
   OPCIONES_ACTIVIDAD,
   OPCIONES_OBJETIVO,
@@ -16,6 +17,7 @@ import {
   etiquetaDe,
   fechaLegible,
   type FichaBorrador,
+  type Metas,
 } from '@/lib/perfil';
 import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
 
@@ -60,6 +62,36 @@ export default function Perfil() {
     guardarCambio({ peso_kg: pesoDebounced });
   }, [pesoDebounced]);
 
+  const [editando, setEditando] = useState(false);
+  const [manuales, setManuales] = useState<Partial<Metas>>({});
+
+  const completas =
+    manuales.calorias != null &&
+    manuales.prot_g != null &&
+    manuales.carb_g != null &&
+    manuales.fat_g != null;
+
+  function abrirEditor() {
+    // Se siembra con lo que ya se muestra: nadie quiere escribir cuatro
+    // números desde cero para cambiar uno.
+    setManuales(perfil?.metas ?? {});
+    setEditando(true);
+  }
+
+  function guardarManuales() {
+    // El backend rechaza un envío parcial con 422 ("las cuatro juntas o
+    // ninguna"). El botón está deshabilitado hasta tenerlas, así que ese
+    // error no se ve nunca.
+    if (!completas) return;
+    guardarCambio({ metas_manuales: manuales as Metas });
+    setEditando(false);
+  }
+
+  function volverAlCalculo() {
+    guardarCambio({ metas_manuales: null });
+    setEditando(false);
+  }
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.barra}>
@@ -98,6 +130,68 @@ export default function Perfil() {
               >
                 <Text style={styles.botonTexto}>Completar mi ficha</Text>
               </Pressable>
+            </View>
+          )}
+
+          {perfil.metas_son_manuales && (
+            // Ámbar porque es exactamente lo que el token significa en este
+            // proyecto: algo que necesita atención. No es decorativo.
+            <View style={styles.aviso}>
+              <Text style={styles.avisoTexto}>
+                Estás usando metas escritas por ti. No se actualizan solas cuando cambian tus
+                datos.
+              </Text>
+              <Pressable onPress={volverAlCalculo} hitSlop={8} accessibilityRole="button">
+                <Text style={styles.avisoAccion}>Volver a calcular</Text>
+              </Pressable>
+            </View>
+          )}
+
+          {!editando ? (
+            <Pressable onPress={abrirEditor} hitSlop={8} accessibilityRole="button">
+              <Text style={styles.enlace}>Ajustar a mano</Text>
+            </Pressable>
+          ) : (
+            <View style={styles.editor}>
+              <FilaNumero
+                etiqueta="Calorías"
+                unidad="kcal"
+                valor={manuales.calorias ?? null}
+                onCambio={(n) => setManuales((m) => ({ ...m, calorias: n ?? undefined }))}
+              />
+              <FilaNumero
+                etiqueta="Proteína"
+                unidad="g"
+                valor={manuales.prot_g ?? null}
+                onCambio={(n) => setManuales((m) => ({ ...m, prot_g: n ?? undefined }))}
+              />
+              <FilaNumero
+                etiqueta="Carbohidratos"
+                unidad="g"
+                valor={manuales.carb_g ?? null}
+                onCambio={(n) => setManuales((m) => ({ ...m, carb_g: n ?? undefined }))}
+              />
+              <FilaNumero
+                etiqueta="Grasas"
+                unidad="g"
+                valor={manuales.fat_g ?? null}
+                onCambio={(n) => setManuales((m) => ({ ...m, fat_g: n ?? undefined }))}
+              />
+
+              <View style={styles.editorAcciones}>
+                <Pressable onPress={() => setEditando(false)} hitSlop={8}>
+                  <Text style={styles.enlaceApagado}>Cancelar</Text>
+                </Pressable>
+                <Pressable onPress={guardarManuales} disabled={!completas} hitSlop={8}>
+                  <Text style={[styles.enlace, !completas && styles.enlaceInactivo]}>
+                    Guardar metas
+                  </Text>
+                </Pressable>
+              </View>
+
+              {!completas && (
+                <Text style={styles.ayudaChica}>Las cuatro metas van juntas.</Text>
+              )}
             </View>
           )}
 
@@ -152,6 +246,23 @@ export default function Perfil() {
           {guardar.isError && (
             <Text style={styles.errorLinea}>{(guardar.error as Error).message}</Text>
           )}
+
+          <Pressable
+            style={styles.salir}
+            accessibilityRole="button"
+            onPress={() =>
+              Alert.alert('Cerrar sesión', '¿Seguro que quieres cerrar sesión?', [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                  text: 'Cerrar sesión',
+                  style: 'destructive',
+                  onPress: () => supabase.auth.signOut(),
+                },
+              ])
+            }
+          >
+            <Text style={styles.salirTexto}>Cerrar sesión</Text>
+          </Pressable>
         </ScrollView>
       )}
 
@@ -232,4 +343,39 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     marginTop: spacing.md,
   },
+  aviso: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: 10,
+    padding: spacing.lg,
+    marginTop: spacing.lg,
+    gap: spacing.sm,
+  },
+  avisoTexto: {
+    color: colors.ink,
+    fontFamily: fonts.regular,
+    fontSize: fontSize.sm,
+    lineHeight: 19,
+  },
+  avisoAccion: { color: colors.accent, fontFamily: fonts.medium, fontSize: fontSize.sm },
+  enlace: { color: colors.primary, fontFamily: fonts.medium, fontSize: fontSize.base, marginTop: spacing.lg },
+  enlaceApagado: { color: colors.muted, fontFamily: fonts.medium, fontSize: fontSize.base },
+  enlaceInactivo: { color: colors.muted },
+  editor: { marginTop: spacing.lg },
+  editorAcciones: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: spacing.lg,
+    minHeight: 48,
+  },
+  ayudaChica: { color: colors.muted, fontFamily: fonts.regular, fontSize: fontSize.sm },
+  salir: {
+    marginTop: spacing.xxl,
+    paddingVertical: spacing.lg,
+    minHeight: 48,
+    justifyContent: 'center',
+  },
+  salirTexto: { color: colors.danger, fontFamily: fonts.medium, fontSize: fontSize.base },
 });
