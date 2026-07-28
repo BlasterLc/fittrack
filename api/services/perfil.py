@@ -131,7 +131,10 @@ def resolver(sesion: Session, user_id: str, hoy: dt.date | None = None) -> Perfi
 
     completo = all(getattr(perfil, campo) is not None for campo in CAMPOS_DEL_CALCULO)
 
-    if perfil.meta_calorias is not None:
+    # Las cuatro juntas o ninguna. `guardar` ya lo garantiza, pero la tabla no
+    # tiene un CHECK: una fila editada a mano en el panel de Supabase podría
+    # dejar solo algunas, y ahí conviene caer al cálculo antes que reventar.
+    if all(getattr(perfil, f"meta_{campo}") is not None for campo in CAMPOS_METAS):
         manuales = calculo.Metas(
             calorias=perfil.meta_calorias,
             prot_g=perfil.meta_prot_g,

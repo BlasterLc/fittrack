@@ -161,6 +161,23 @@ def test_guardar_con_metas_en_none_vuelve_al_calculo(db_session):
     assert resuelto.metas.calorias == 2980
 
 
+def test_una_fila_con_metas_a_medias_cae_al_calculo(db_session):
+    """La tabla no tiene CHECK: se puede editar a mano en el panel de Supabase.
+
+    Con solo una de las cuatro metas cargada, los esquemas de salida —que las
+    tipan como enteros obligatorios— darían 500. Se prefiere el cálculo.
+    """
+    servicio.guardar(db_session, USUARIO, DATOS_COMPLETOS)
+    a_medias = db_session.get(Profile, USUARIO)
+    a_medias.meta_calorias = 2200
+    db_session.commit()
+
+    resuelto = servicio.resolver(db_session, USUARIO, hoy=dt.date(2026, 7, 27))
+
+    assert resuelto.son_manuales is False
+    assert resuelto.metas.calorias == 2980
+
+
 def test_el_perfil_de_otro_usuario_no_se_ve(db_session):
     servicio.guardar(db_session, OTRO_USUARIO, DATOS_COMPLETOS)
 
