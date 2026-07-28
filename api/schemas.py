@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, computed_field
 
@@ -142,3 +142,50 @@ class GuardarRutinaRequest(BaseModel):
 
 class ArchivarRutinaRequest(BaseModel):
     archivada: bool
+
+
+class MetasOut(BaseModel):
+    calorias: int
+    prot_g: int
+    carb_g: int
+    fat_g: int
+
+
+class PerfilOut(BaseModel):
+    """El perfil tal como lo consume la app."""
+
+    nombre: str | None
+    sexo: str | None
+    fecha_nacimiento: date | None
+    altura_cm: int | None
+    peso_kg: float | None
+    actividad: str | None
+    objetivo: str | None
+    # Si están los seis datos que necesita el cálculo.
+    completo: bool
+    # Si los números de `metas` fueron escritos a mano. Se llama distinto que
+    # el campo del PUT a propósito: allá es el objeto con los números.
+    metas_son_manuales: bool
+    metas: MetasOut | None
+    mantenimiento: int | None
+
+
+class MetasManualesIn(BaseModel):
+    calorias: int
+    prot_g: int
+    carb_g: int
+    fat_g: int
+
+
+class GuardarPerfilRequest(BaseModel):
+    """Describe el estado final del perfil: lo que no llega, se borra."""
+
+    nombre: str | None = None
+    sexo: str | None = None
+    fecha_nacimiento: date | None = None
+    altura_cm: int | None = None
+    peso_kg: float | None = None
+    actividad: str | None = None
+    objetivo: str | None = None
+    # En null borra las metas escritas a mano y vuelve al cálculo automático.
+    metas_manuales: MetasManualesIn | None = None

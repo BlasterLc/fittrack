@@ -222,3 +222,102 @@ def test_guardar_rechaza_metas_manuales_incompletas(db_session):
             USUARIO,
             {**DATOS_COMPLETOS, "metas_manuales": {"calorias": 2500, "prot_g": 150}},
         )
+
+
+CUERPO_COMPLETO = {
+    "nombre": "Matías",
+    "sexo": "hombre",
+    "fecha_nacimiento": "1998-03-14",
+    "altura_cm": 176,
+    "peso_kg": 78.0,
+    "actividad": "moderado",
+    "objetivo": "ganar",
+    "metas_manuales": None,
+}
+
+
+def test_endpoint_get_sin_perfil_devuelve_todo_vacio(client, auth_headers):
+    r = client.get("/api/profile", headers=auth_headers)
+
+    assert r.status_code == 200
+    cuerpo = r.json()
+    assert cuerpo["nombre"] is None
+    assert cuerpo["completo"] is False
+    assert cuerpo["metas"] is None
+    assert cuerpo["metas_son_manuales"] is False
+
+
+def test_endpoint_put_crea_el_perfil_y_devuelve_las_metas(client, auth_headers):
+    r = client.put("/api/profile", json=CUERPO_COMPLETO, headers=auth_headers)
+
+    assert r.status_code == 200
+    cuerpo = r.json()
+    assert cuerpo["nombre"] == "Matías"
+    assert cuerpo["completo"] is True
+    assert cuerpo["metas"]["calorias"] > 0
+    assert cuerpo["mantenimiento"] > 0
+
+
+def test_endpoint_put_y_despues_get_devuelven_lo_mismo(client, auth_headers):
+    puesto = client.put("/api/profile", json=CUERPO_COMPLETO, headers=auth_headers).json()
+    traido = client.get("/api/profile", headers=auth_headers).json()
+
+    assert puesto == traido
+
+
+def test_endpoint_put_con_datos_invalidos_da_422(client, auth_headers):
+    r = client.put(
+        "/api/profile", json={**CUERPO_COMPLETO, "altura_cm": 300}, headers=auth_headers
+    )
+
+    assert r.status_code == 422
+    # La app muestra este texto tal cual, asi que tiene que ser una cadena.
+    assert isinstance(r.json()["detail"], str)
+
+
+def test_endpoint_put_guarda_metas_manuales(client, auth_headers):
+    r = client.put(
+        "/api/profile",
+        json={
+            **CUERPO_COMPLETO,
+            "metas_manuales": {"calorias": 2500, "prot_g": 150, "carb_g": 300, "fat_g": 70},
+        },
+        headers=auth_headers,
+    )
+
+    assert r.status_code == 200
+    assert r.json()["metas_son_manuales"] is True
+    assert r.json()["metas"]["calorias"] == 2500
+
+
+def test_endpoint_put_con_metas_en_null_vuelve_al_calculo(client, auth_headers):
+    client.put(
+        "/api/profile",
+        json={
+            **CUERPO_COMPLETO,
+            "metas_manuales": {"calorias": 2500, "prot_g": 150, "carb_g": 300, "fat_g": 70},
+        },
+        headers=auth_headers,
+    )
+
+    r = client.put("/api/profile", json=CUERPO_COMPLETO, headers=auth_headers)
+
+    assert r.json()["metas_son_manuales"] is False
+    assert r.json()["metas"]["calorias"] != 2500
+
+
+def test_endpoint_put_acepta_un_perfil_a_medias(client, auth_headers):
+    r = client.put(
+        "/api/profile",
+        json={**CUERPO_COMPLETO, "actividad": None},
+        headers=auth_headers,
+    )
+
+    assert r.status_code == 200
+    assert r.json()["completo"] is False
+    assert r.json()["metas"] is None
+
+
+def test_los_endpoints_de_perfil_exigen_token(client):
+    assert client.get("/api/profile").status_code == 401
+    assert client.put("/api/profile", json={}).status_code == 401
