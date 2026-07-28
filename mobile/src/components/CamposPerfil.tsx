@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
 
@@ -28,25 +29,52 @@ export function FilaNumero({
   valor,
   decimal,
   onCambio,
+  onFinEdicion,
 }: {
   etiqueta: string;
   unidad: string;
   valor: number | null;
   decimal?: boolean;
   onCambio: (valor: number | null) => void;
+  /** Se llama al perder el foco. Quien guarda contra el servidor lo hace acá,
+   *  no en cada tecla: "18" camino a "180" es un valor que el backend rechaza. */
+  onFinEdicion?: (valor: number | null) => void;
 }) {
+  // El estado del campo es el TEXTO, no el número. Controlar el TextInput con
+  // el número rompía dos cosas:
+  //
+  // 1. Escribir "78." era imposible: parseFloat("78.") da 78, el estado no
+  //    cambiaba, y RN devuelve el texto nativo al `value` de JS cuando no
+  //    coinciden (TextInput.js, el useLayoutEffect que compara lastNativeText
+  //    con props.value). El punto desaparecía y "5" quedaba como "785".
+  // 2. Borrar el último carácter daba NaN, o sea null, y el campo volvía a
+  //    mostrar el valor anterior mientras el usuario seguía escribiendo.
+  //
+  // Se siembra una sola vez, en el inicializador de useState. Nada de hidratar
+  // por efecto: ese efecto vuelve a correr con cada refetch de la consulta y
+  // pisa lo que el usuario está escribiendo (pasó en la Fase 5b).
+  const [texto, setTexto] = useState(() => (valor === null ? '' : String(valor)));
+
+  function interpretar(crudo: string): number | null {
+    const limpio = crudo.replace(',', '.');
+    const n = decimal ? parseFloat(limpio) : parseInt(limpio, 10);
+    return Number.isFinite(n) ? n : null;
+  }
+
   return (
     <View style={styles.fila}>
       <Text style={styles.filaEtiqueta}>{etiqueta}</Text>
       <View style={styles.filaEntrada}>
         <TextInput
           style={styles.numero}
-          value={valor === null ? '' : String(valor)}
+          value={texto}
           onChangeText={(t) => {
-            const limpio = t.replace(',', '.');
-            const n = decimal ? parseFloat(limpio) : parseInt(limpio, 10);
-            onCambio(Number.isFinite(n) ? n : null);
+            setTexto(t);
+            onCambio(interpretar(t));
           }}
+          // Solo onBlur, no también onEndEditing: los dos disparan al terminar
+          // de editar y quien guarde mandaría el mismo PUT dos veces.
+          onBlur={() => onFinEdicion?.(interpretar(texto))}
           keyboardType={decimal ? 'decimal-pad' : 'number-pad'}
           placeholder="—"
           placeholderTextColor={colors.muted}

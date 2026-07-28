@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Pressable, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { HojaOpciones } from '@/components/HojaOpciones';
 import { CampoFecha } from '@/components/CampoFecha';
 import { MetasResumen } from '@/components/MetasResumen';
 import { Fila, FilaNumero } from '@/components/CamposPerfil';
 import { useGuardarPerfil, usePerfil } from '@/hooks/usePerfil';
-import { useDebounce } from '@/hooks/useDebounce';
 import { supabase } from '@/lib/supabase';
 import {
   OPCIONES_ACTIVIDAD,
@@ -18,11 +18,13 @@ import {
   fechaLegible,
   type FichaBorrador,
   type Metas,
+  type Perfil as PerfilGuardado,
 } from '@/lib/perfil';
 import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
 
 export default function Perfil() {
   const router = useRouter();
+  const cliente = useQueryClient();
   const { data: perfil, isLoading, isError } = usePerfil();
   const guardar = useGuardarPerfil();
   const [hoja, setHoja] = useState<'sexo' | 'actividad' | 'objetivo' | null>(null);
@@ -32,44 +34,63 @@ export default function Perfil() {
   // "guardar parcial". La respuesta siembra ['perfil'], así que las metas de
   // arriba se actualizan solas.
   //
-  // Ojo: NO se copia el perfil del servidor a un estado local. En la Fase 5b
-  // ese patrón causó un bug real — el efecto que hidrataba el editor volvía a
-  // correr con cada refetch y pisaba lo que el usuario estaba escribiendo.
-  // Acá la única fuente de verdad es la consulta.
-  function guardarCambio(cambios: Partial<FichaBorrador>) {
-    if (!perfil) return;
-    guardar.mutate({ ...borradorDesde(perfil), ...cambios });
+  // Dos detalles que costaron un bug cada uno:
+  //
+  // 1. La base del cuerpo se lee de la caché EN EL MOMENTO de mutar, no del
+  //    `perfil` que capturó este render. Con la foto del render, elegir un
+  //    objetivo justo después de escribir el peso mandaba el peso viejo.
+  // 2. Los guardados se encadenan: hasta que no responde uno no sale el
+  //    siguiente. Dos PUT en vuelo se pisaban y el último en llegar revertía
+  //    el cambio del otro.
+  //
+  // Y como siempre: NO se copia el perfil del servidor a un estado local. En
+  // la Fase 5b ese patrón causó un bug real — el efecto que hidrataba el
+  // editor volvía a correr con cada refetch y pisaba lo que el usuario estaba
+  // escribiendo. Acá la única fuente de verdad es la consulta.
+  const cola = useRef<Promise<void>>(Promise.resolve());
+
+  function guardarCambio(cambios: Partial<FichaBorrador>, alGuardar?: () => void) {
+    cola.current = cola.current
+      .then(async () => {
+        const actual = cliente.getQueryData<PerfilGuardado>(['perfil']);
+        if (!actual) return;
+        await guardar.mutateAsync({ ...borradorDesde(actual), ...cambios });
+        alGuardar?.();
+      })
+      .catch(() => {
+        // El mensaje ya se muestra con guardar.isError. Acá solo hay que dejar
+        // la cola sana para que un fallo no bloquee los guardados siguientes.
+      });
   }
 
-  // Altura y peso son campos de texto: guardar con cada tecla serían cuatro
-  // peticiones al escribir "78.5". Se guarda un valor "pendiente" local (no
-  // sincronizado desde el perfil por efecto — eso sería el mismo bug de la
-  // Fase 5b, ahora en la escritura) y se manda recién cuando ese valor se
-  // asienta. "tocado" evita que el guardado dispare al montar el componente.
-  const [alturaPendiente, setAlturaPendiente] = useState<number | null>(null);
-  const alturaTocada = useRef(false);
-  const alturaDebounced = useDebounce(alturaPendiente, 500);
+  // Altura y peso guardan al terminar de editar (al perder el foco), no con
+  // cada tecla: mandar cada tecla pedía cuatro veces al escribir "78.5" y,
+  // peor, mandaba valores a medio escribir —"18" camino a "180"— que el
+  // backend rechaza con un 422 en pantalla mientras el usuario todavía teclea.
+  //
+  // Tocar «‹ Atrás» no le quita el foco al campo, así que lo último escrito se
+  // anota acá y se manda si la pantalla se cierra antes de confirmarlo: sin
+  // esto el cambio desaparecía sin ninguna señal.
+  const sinConfirmar = useRef<Partial<FichaBorrador>>({});
   useEffect(() => {
-    if (!alturaTocada.current) return;
-    guardarCambio({ altura_cm: alturaDebounced });
-  }, [alturaDebounced]);
-
-  const [pesoPendiente, setPesoPendiente] = useState<number | null>(null);
-  const pesoTocado = useRef(false);
-  const pesoDebounced = useDebounce(pesoPendiente, 500);
-  useEffect(() => {
-    if (!pesoTocado.current) return;
-    guardarCambio({ peso_kg: pesoDebounced });
-  }, [pesoDebounced]);
+    return () => {
+      if (Object.keys(sinConfirmar.current).length > 0) guardarCambio(sinConfirmar.current);
+    };
+    // Solo al desmontar: guardarCambio no depende de este render, lee el
+    // perfil de la caché.
+  }, []);
 
   const [editando, setEditando] = useState(false);
   const [manuales, setManuales] = useState<Partial<Metas>>({});
 
+  // Mayores que cero, no "distintas de null": el backend rechaza un cero con
+  // 422 y `0 != null` es true, así que el botón se habilitaba con metas que
+  // no podían guardarse.
   const completas =
-    manuales.calorias != null &&
-    manuales.prot_g != null &&
-    manuales.carb_g != null &&
-    manuales.fat_g != null;
+    (manuales.calorias ?? 0) > 0 &&
+    (manuales.prot_g ?? 0) > 0 &&
+    (manuales.carb_g ?? 0) > 0 &&
+    (manuales.fat_g ?? 0) > 0;
 
   function abrirEditor() {
     // Se siembra con lo que ya se muestra: nadie quiere escribir cuatro
@@ -80,11 +101,14 @@ export default function Perfil() {
 
   function guardarManuales() {
     // El backend rechaza un envío parcial con 422 ("las cuatro juntas o
-    // ninguna"). El botón está deshabilitado hasta tenerlas, así que ese
-    // error no se ve nunca.
+    // ninguna") y también un cero ("mayores que cero"). `completas` exige las
+    // dos cosas, así que el botón solo se habilita con algo que el backend
+    // acepta.
     if (!completas) return;
-    guardarCambio({ metas_manuales: manuales as Metas });
-    setEditando(false);
+    // El editor se cierra recién cuando el guardado responde bien. Cerrarlo
+    // apenas se dispara la mutación perdía los cuatro números escritos si el
+    // PUT fallaba, y dejaba el error fuera de la vista.
+    guardarCambio({ metas_manuales: manuales as Metas }, () => setEditando(false));
   }
 
   function volverAlCalculo() {
@@ -182,15 +206,33 @@ export default function Perfil() {
                 <Pressable onPress={() => setEditando(false)} hitSlop={8}>
                   <Text style={styles.enlaceApagado}>Cancelar</Text>
                 </Pressable>
-                <Pressable onPress={guardarManuales} disabled={!completas} hitSlop={8}>
-                  <Text style={[styles.enlace, !completas && styles.enlaceInactivo]}>
-                    Guardar metas
+                <Pressable
+                  onPress={guardarManuales}
+                  disabled={!completas || guardar.isPending}
+                  hitSlop={8}
+                >
+                  <Text
+                    style={[
+                      styles.enlace,
+                      (!completas || guardar.isPending) && styles.enlaceInactivo,
+                    ]}
+                  >
+                    {guardar.isPending ? 'Guardando…' : 'Guardar metas'}
                   </Text>
                 </Pressable>
               </View>
 
               {!completas && (
-                <Text style={styles.ayudaChica}>Las cuatro metas van juntas.</Text>
+                <Text style={styles.ayudaChica}>
+                  Las cuatro metas van juntas y tienen que ser mayores que cero.
+                </Text>
+              )}
+
+              {/* Dentro del editor: si el guardado falla, el editor sigue
+                  abierto con los números escritos y el error tiene que verse
+                  junto a ellos, no al final del ScrollView. */}
+              {guardar.isError && (
+                <Text style={styles.errorLinea}>{(guardar.error as Error).message}</Text>
               )}
             </View>
           )}
@@ -213,23 +255,33 @@ export default function Perfil() {
           >
             <Fila etiqueta="Fecha de nacimiento" valor={fechaLegible(perfil.fecha_nacimiento)} />
           </CampoFecha>
+          {/* El campo muestra su propio texto: acá solo va el valor guardado,
+              que es lo que siembra el campo al montarse. Nada de mezclarlo con
+              un "pendiente" — `pendiente ?? perfil.altura_cm` hacía reaparecer
+              el valor viejo apenas el usuario borraba el campo. */}
           <FilaNumero
             etiqueta="Altura"
             unidad="cm"
-            valor={alturaPendiente ?? perfil.altura_cm}
+            valor={perfil.altura_cm}
             onCambio={(n) => {
-              alturaTocada.current = true;
-              setAlturaPendiente(n);
+              sinConfirmar.current.altura_cm = n;
+            }}
+            onFinEdicion={(n) => {
+              delete sinConfirmar.current.altura_cm;
+              if (n !== perfil.altura_cm) guardarCambio({ altura_cm: n });
             }}
           />
           <FilaNumero
             etiqueta="Peso"
             unidad="kg"
-            valor={pesoPendiente ?? perfil.peso_kg}
+            valor={perfil.peso_kg}
             decimal
             onCambio={(n) => {
-              pesoTocado.current = true;
-              setPesoPendiente(n);
+              sinConfirmar.current.peso_kg = n;
+            }}
+            onFinEdicion={(n) => {
+              delete sinConfirmar.current.peso_kg;
+              if (n !== perfil.peso_kg) guardarCambio({ peso_kg: n });
             }}
           />
           <Fila
@@ -243,7 +295,9 @@ export default function Perfil() {
             onPress={() => setHoja('objetivo')}
           />
 
-          {guardar.isError && (
+          {/* Con el editor de metas abierto el error se muestra adentro, al
+              lado de los números que lo causaron. */}
+          {guardar.isError && !editando && (
             <Text style={styles.errorLinea}>{(guardar.error as Error).message}</Text>
           )}
 
