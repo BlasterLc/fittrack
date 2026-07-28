@@ -370,6 +370,9 @@ def test_preview_devuelve_las_metas_sin_guardar(client, auth_headers):
     cuerpo = r.json()
     assert cuerpo["completo"] is True
     assert cuerpo["metas"]["calorias"] == 2980
+    assert cuerpo["metas"]["prot_g"] == 140
+    assert cuerpo["metas"]["carb_g"] == 418
+    assert cuerpo["metas"]["fat_g"] == 83
     assert cuerpo["mantenimiento"] == 2705
 
     # Lo importante: no persistio nada.
@@ -390,10 +393,11 @@ def test_preview_con_datos_incompletos_no_da_metas(client, auth_headers):
 def test_preview_no_pisa_un_perfil_ya_guardado(client, auth_headers):
     client.put("/api/profile", json=CUERPO_COMPLETO, headers=auth_headers)
 
-    client.post(
+    r = client.post(
         "/api/profile/preview", json={**CUERPO_COMPLETO, "peso_kg": 95.0}, headers=auth_headers
     )
 
+    assert r.status_code == 200
     assert client.get("/api/profile", headers=auth_headers).json()["peso_kg"] == 78.0
 
 
