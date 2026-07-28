@@ -318,6 +318,29 @@ def test_endpoint_put_acepta_un_perfil_a_medias(client, auth_headers):
     assert r.json()["metas"] is None
 
 
+def test_con_metas_manuales_y_perfil_a_medias_el_mantenimiento_viaja_en_null(client, auth_headers):
+    """El único caso donde no hay mantenimiento que calcular.
+
+    Si viajara como 0, la pantalla mostraría «0 kcal de mantenimiento», que es
+    mentira: lo que corresponde es no mostrar nada.
+    """
+    r = client.put(
+        "/api/profile",
+        json={
+            **CUERPO_COMPLETO,
+            "actividad": None,
+            "metas_manuales": {"calorias": 2500, "prot_g": 150, "carb_g": 300, "fat_g": 70},
+        },
+        headers=auth_headers,
+    )
+
+    assert r.status_code == 200
+    cuerpo = r.json()
+    assert cuerpo["completo"] is False
+    assert cuerpo["metas"]["calorias"] == 2500
+    assert cuerpo["mantenimiento"] is None
+
+
 def test_los_endpoints_de_perfil_exigen_token(client):
     assert client.get("/api/profile").status_code == 401
     assert client.put("/api/profile", json={}).status_code == 401
