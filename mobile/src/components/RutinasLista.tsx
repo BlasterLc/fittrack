@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
   vacioLista: { color: colors.muted, fontFamily: fonts.regular, fontSize: fontSize.sm, textAlign: 'center', padding: spacing.xl },
   cta: { backgroundColor: colors.primary, borderRadius: 10, paddingVertical: spacing.md, paddingHorizontal: spacing.xl },
   ctaTexto: { color: colors.ink, fontFamily: fonts.semibold, fontSize: fontSize.base },
-  accion: { color: colors.primary, fontFamily: fonts.semibold, fontSize: fontSize.base },
+  accion: { color: colors.primaryText, fontFamily: fonts.semibold, fontSize: fontSize.base },
   fila: {
     flexDirection: 'row',
     alignItems: 'center',

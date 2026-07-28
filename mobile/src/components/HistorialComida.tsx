@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
   comidaDetalle: { paddingHorizontal: spacing.md, paddingBottom: spacing.md, gap: spacing.xs },
   itemLinea: { color: colors.muted, fontFamily: fonts.regular, fontSize: fontSize.sm },
   acciones: { flexDirection: 'row', gap: spacing.xl, marginTop: spacing.sm },
-  editar: { color: colors.primary, fontFamily: fonts.medium, fontSize: fontSize.base },
+  editar: { color: colors.primaryText, fontFamily: fonts.medium, fontSize: fontSize.base },
   eliminar: { color: colors.danger, fontFamily: fonts.medium, fontSize: fontSize.base },
   mesAnterior: {
     paddingVertical: spacing.md,

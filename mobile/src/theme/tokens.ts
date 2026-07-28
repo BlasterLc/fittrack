@@ -6,6 +6,11 @@ export const colors = {
   ink: '#f0f2f6',
   muted: '#8a8d95',
   primary: '#5f74e4',
+  // El índigo de marca SOLO sirve como relleno (con `ink` encima). Como texto
+  // no llega a 4,5:1 en ningún fondo salvo `bg`, y ahí pasa por un 4%: da 4,69
+  // sobre bg, 4,22 sobre surface y 3,81 sobre surface2. Este es el mismo tono
+  // aclarado para usarlo como texto: 6,68 / 6,02 / 5,42.
+  primaryText: '#7b90ff',
   accent: '#e0b341', // solo semántico
   // Acciones que pierden datos. Separado de accent porque el ámbar ya lo usan
   // los carbohidratos, y un color con dos significados no significa nada.

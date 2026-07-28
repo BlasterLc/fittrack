@@ -115,8 +115,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: spacing.lg,
-    minHeight: 48,
+    // Sin padding: el alto lo fija minHeight, y así la fila de texto y la
+    // numérica miden lo mismo. Antes la numérica quedaba 14dp más alta que
+    // sus vecinas y el campo de adentro no llegaba a 48.
+    paddingVertical: 0,
+    minHeight: 56,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.line,
   },
@@ -131,7 +134,10 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
     textAlign: 'right',
     minWidth: 60,
-    paddingVertical: spacing.sm,
+    // 48dp de alto real: es el blanco táctil mínimo de Android y acá el
+    // TextInput ES el control, no la fila que lo contiene.
+    minHeight: 48,
+    paddingVertical: 0,
   },
   unidad: { color: colors.muted, fontFamily: fonts.regular, fontSize: fontSize.base },
   tarjeta: {

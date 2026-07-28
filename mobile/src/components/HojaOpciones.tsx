@@ -25,7 +25,16 @@ export function HojaOpciones<T extends string>({
         <View style={styles.hoja}>
           <View style={styles.cabecera}>
             <Text style={styles.titulo}>{titulo}</Text>
-            <Pressable onPress={onCerrar} hitSlop={12}>
+            {/* El alto lo da el propio botón (48dp reales). El ancho se
+                completa con hitSlop, que se queda dentro del padding de la
+                cabecera: en Android un hitSlop que se sale del padre no
+                recibe el toque. */}
+            <Pressable
+              style={styles.cerrarBoton}
+              hitSlop={{ left: 12, right: 12 }}
+              onPress={onCerrar}
+              accessibilityRole="button"
+            >
               <Text style={styles.cerrar}>Listo</Text>
             </Pressable>
           </View>
@@ -78,12 +87,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.lg,
+    // El aire lo pone ahora el botón «Listo», que mide 48dp: con el
+    // paddingVertical anterior la cabecera medía lo mismo que mide hoy.
+    paddingVertical: spacing.xs,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.line,
   },
   titulo: { color: colors.ink, fontFamily: fonts.semibold, fontSize: fontSize.lg },
-  cerrar: { color: colors.primary, fontFamily: fonts.medium, fontSize: fontSize.base },
+  cerrarBoton: { minHeight: 48, justifyContent: 'center' },
+  cerrar: { color: colors.primaryText, fontFamily: fonts.medium, fontSize: fontSize.base },
   opcion: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -99,5 +111,5 @@ const styles = StyleSheet.create({
   opcionLabel: { color: colors.ink, fontFamily: fonts.medium, fontSize: fontSize.base },
   opcionLabelActiva: { fontFamily: fonts.semibold },
   opcionDetalle: { color: colors.muted, fontFamily: fonts.regular, fontSize: fontSize.sm },
-  tilde: { color: colors.primary, fontFamily: fonts.semibold, fontSize: fontSize.lg },
+  tilde: { color: colors.primaryText, fontFamily: fonts.semibold, fontSize: fontSize.lg },
 });

@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
   sub: { color: colors.muted, fontFamily: fonts.regular, fontSize: fontSize.sm, marginTop: 2 },
   centrado: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, padding: spacing.xl },
   vacioTitulo: { color: colors.muted, fontFamily: fonts.regular, fontSize: fontSize.base, textAlign: 'center' },
-  accion: { color: colors.primary, fontFamily: fonts.semibold, fontSize: fontSize.base },
+  accion: { color: colors.primaryText, fontFamily: fonts.semibold, fontSize: fontSize.base },
   pie: { paddingVertical: spacing.lg },
   check: {
     width: 22,

@@ -139,7 +139,13 @@ export default function Perfil() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.barra}>
-        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Volver">
+        <Pressable
+          style={styles.barraBoton}
+          hitSlop={{ left: 12, right: 12 }}
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Volver"
+        >
           <Text style={styles.volver}>‹ Atrás</Text>
         </Pressable>
       </View>
@@ -185,14 +191,14 @@ export default function Perfil() {
                 Estás usando metas escritas por ti. No se actualizan solas cuando cambian tus
                 datos.
               </Text>
-              <Pressable onPress={volverAlCalculo} hitSlop={8} accessibilityRole="button">
+              <Pressable style={styles.accionEnLinea} onPress={volverAlCalculo} accessibilityRole="button">
                 <Text style={styles.avisoAccion}>Volver a calcular</Text>
               </Pressable>
             </View>
           )}
 
           {!editando ? (
-            <Pressable onPress={abrirEditor} hitSlop={8} accessibilityRole="button">
+            <Pressable style={styles.accionSuelta} onPress={abrirEditor} accessibilityRole="button">
               <Text style={styles.enlace}>Ajustar a mano</Text>
             </Pressable>
           ) : (
@@ -223,13 +229,18 @@ export default function Perfil() {
               />
 
               <View style={styles.editorAcciones}>
-                <Pressable onPress={() => setEditando(false)} hitSlop={8}>
+                <Pressable
+                  style={styles.accionEnLinea}
+                  onPress={() => setEditando(false)}
+                  accessibilityRole="button"
+                >
                   <Text style={styles.enlaceApagado}>Cancelar</Text>
                 </Pressable>
                 <Pressable
+                  style={styles.accionEnLinea}
                   onPress={guardarManuales}
                   disabled={!completas || guardar.isPending}
-                  hitSlop={8}
+                  accessibilityRole="button"
                 >
                   <Text
                     style={[
@@ -377,8 +388,10 @@ export default function Perfil() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
-  barra: { paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.sm },
-  volver: { color: colors.primary, fontFamily: fonts.medium, fontSize: fontSize.base },
+  // El aire de la barra lo pone el botón, que mide 48dp.
+  barra: { paddingHorizontal: spacing.xl, paddingTop: spacing.xs },
+  barraBoton: { minHeight: 48, justifyContent: 'center', alignSelf: 'flex-start' },
+  volver: { color: colors.primaryText, fontFamily: fonts.medium, fontSize: fontSize.base },
   cuerpo: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl },
   h1: {
     color: colors.ink,
@@ -433,7 +446,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   errorLinea: {
-    color: colors.danger,
+    // Ámbar, como el resto del texto de error del proyecto (login.tsx,
+    // (tabs)/index.tsx, RegistroComida.tsx). El rojo queda para «Cerrar
+    // sesión»: acciones que pierden algo, que es lo que el token declara.
+    color: colors.accent,
     fontFamily: fonts.regular,
     fontSize: fontSize.sm,
     marginTop: spacing.md,
@@ -454,7 +470,17 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
   avisoAccion: { color: colors.accent, fontFamily: fonts.medium, fontSize: fontSize.sm },
-  enlace: { color: colors.primary, fontFamily: fonts.medium, fontSize: fontSize.base, marginTop: spacing.lg },
+  // Los 48dp van en el Pressable, no en el Text: un minHeight en el contenedor
+  // con alignItems: 'center' no estira a los hijos, que es justo por qué estas
+  // acciones medían 34dp.
+  accionEnLinea: { minHeight: 48, justifyContent: 'center' },
+  accionSuelta: {
+    minHeight: 48,
+    justifyContent: 'center',
+    alignSelf: 'flex-start',
+    marginTop: spacing.sm,
+  },
+  enlace: { color: colors.primaryText, fontFamily: fonts.medium, fontSize: fontSize.base },
   enlaceApagado: { color: colors.muted, fontFamily: fonts.medium, fontSize: fontSize.base },
   enlaceInactivo: { color: colors.muted },
   editor: { marginTop: spacing.lg },
@@ -462,8 +488,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: spacing.lg,
-    minHeight: 48,
+    marginTop: spacing.sm,
   },
   ayudaChica: { color: colors.muted, fontFamily: fonts.regular, fontSize: fontSize.sm },
   salir: {

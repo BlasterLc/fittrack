@@ -84,6 +84,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   conteo: { color: colors.muted, fontFamily: fonts.regular, fontSize: fontSize.sm },
-  agregar: { color: colors.primary, fontFamily: fonts.semibold, fontSize: fontSize.base },
+  agregar: { color: colors.primaryText, fontFamily: fonts.semibold, fontSize: fontSize.base },
   agregarInactivo: { color: colors.muted },
 });

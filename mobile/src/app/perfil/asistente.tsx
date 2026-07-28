@@ -43,7 +43,13 @@ export default function Asistente() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.barra}>
-        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Atrás">
+        <Pressable
+          style={styles.barraBoton}
+          hitSlop={{ left: 12, right: 12 }}
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Atrás"
+        >
           <Text style={styles.volver}>‹ Atrás</Text>
         </Pressable>
       </View>
@@ -96,11 +102,22 @@ function AsistentePasos({ inicial }: { inicial: FichaBorrador }) {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.barra}>
-        <Pressable onPress={atras} hitSlop={12} accessibilityLabel="Atrás">
+        <Pressable
+          style={styles.barraBoton}
+          hitSlop={{ left: 12, right: 12 }}
+          onPress={atras}
+          accessibilityRole="button"
+          accessibilityLabel="Atrás"
+        >
           <Text style={styles.volver}>‹ Atrás</Text>
         </Pressable>
         {paso <= ULTIMO_PASO && (
-          <Pressable onPress={() => setPaso(paso + 1)} hitSlop={12}>
+          <Pressable
+            style={styles.barraBoton}
+            hitSlop={{ left: 12, right: 12 }}
+            onPress={() => setPaso(paso + 1)}
+            accessibilityRole="button"
+          >
             <Text style={styles.omitir}>Omitir</Text>
           </Pressable>
         )}
@@ -282,10 +299,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
+    // El aire lo pone el botón, que mide 48dp.
+    paddingTop: spacing.xs,
   },
-  volver: { color: colors.primary, fontFamily: fonts.medium, fontSize: fontSize.base },
+  barraBoton: { minHeight: 48, justifyContent: 'center' },
+  volver: { color: colors.primaryText, fontFamily: fonts.medium, fontSize: fontSize.base },
   omitir: { color: colors.muted, fontFamily: fonts.medium, fontSize: fontSize.base },
   cuerpo: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xl },
   estado: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl },
@@ -318,7 +336,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   botonSecundarioTexto: {
-    color: colors.primary,
+    color: colors.primaryText,
     fontFamily: fonts.medium,
     fontSize: fontSize.base,
   },
@@ -371,7 +389,9 @@ const styles = StyleSheet.create({
   botonInactivo: { opacity: 0.6 },
   botonTexto: { color: colors.ink, fontFamily: fonts.semibold, fontSize: fontSize.base },
   error: {
-    color: colors.danger,
+    // Mismo ámbar que `aviso` de acá arriba: dos colores de error en la misma
+    // pantalla no distinguen nada.
+    color: colors.accent,
     fontFamily: fonts.regular,
     fontSize: fontSize.sm,
     marginTop: spacing.sm,

@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
   },
   centrado: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
   vacio: { color: colors.muted, fontFamily: fonts.regular, fontSize: fontSize.base },
-  accion: { color: colors.primary, fontFamily: fonts.semibold, fontSize: fontSize.base },
+  accion: { color: colors.primaryText, fontFamily: fonts.semibold, fontSize: fontSize.base },
   cuerpo: { paddingBottom: spacing.xxl },
   // El fondo opaco no es decorativo: la caja queda pegada arriba
   // (stickyHeaderIndices) y sin él se le transparenta la técnica por debajo.

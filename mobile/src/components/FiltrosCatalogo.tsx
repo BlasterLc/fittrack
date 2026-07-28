@@ -189,6 +189,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   hojaTitulo: { color: colors.ink, fontFamily: fonts.semibold, fontSize: fontSize.lg },
-  cerrar: { color: colors.primary, fontFamily: fonts.semibold, fontSize: fontSize.base },
+  cerrar: { color: colors.primaryText, fontFamily: fonts.semibold, fontSize: fontSize.base },
   rejilla: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, paddingBottom: spacing.lg },
 });
