@@ -1,6 +1,7 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -135,3 +136,39 @@ class RoutineExercise(Base):
     weight_default: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     rutina: Mapped["Routine"] = relationship(back_populates="ejercicios")
+
+
+class Profile(Base):
+    """Ficha personal del usuario: los datos con los que se calculan sus metas.
+
+    Una fila por usuario, aislada por user_id (= auth.users.id, sin FK), igual
+    que Meal y Routine. Casi todo es nulo a propósito: el perfil se puede
+    completar a medias y la app tiene que seguir funcionando igual.
+    """
+
+    __tablename__ = "profiles"
+
+    user_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    nombre: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    # "hombre" u "mujer": lo exige la fórmula de Mifflin-St Jeor.
+    sexo: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    # Se guarda la fecha y no la edad: la edad se desactualiza sola y dejaría
+    # la meta calculada con un dato viejo.
+    fecha_nacimiento: Mapped[date | None] = mapped_column(Date, nullable=True)
+    altura_cm: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    peso_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # "poco", "moderado" o "alto".
+    actividad: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    # "bajar", "mantener" o "ganar".
+    objetivo: Mapped[str | None] = mapped_column(String(10), nullable=True)
+
+    # Metas escritas a mano. Si están, mandan sobre el cálculo. Van las cuatro
+    # juntas o ninguna: no existe "escribí solo la proteína".
+    meta_calorias: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    meta_prot_g: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    meta_carb_g: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    meta_fat_g: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
