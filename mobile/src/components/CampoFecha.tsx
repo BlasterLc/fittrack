@@ -27,7 +27,11 @@ export function CampoFecha({
   const minima = new Date(hoy.getFullYear() - 100, hoy.getMonth(), hoy.getDate());
   const maxima = new Date(hoy.getFullYear() - 14, hoy.getMonth(), hoy.getDate());
 
-  const inicial = valor ? new Date(`${valor}T00:00:00`) : new Date(hoy.getFullYear() - 25, 0, 1);
+  // En UTC, igual que aISO: el picker trabaja en UTC en las dos direcciones y
+  // mezclar los dos marcos es lo que corría el día.
+  const inicial = valor
+    ? new Date(`${valor}T00:00:00Z`)
+    : new Date(Date.UTC(hoy.getFullYear() - 25, 0, 1));
 
   return (
     <>
@@ -51,10 +55,19 @@ export function CampoFecha({
   );
 }
 
-// toISOString() convierte a UTC y puede correr el dia una posicion segun la
-// zona horaria. Se arma a mano con los campos locales.
+// Los campos van en UTC, no en local. El DatePicker de Material 3 entrega el
+// día elegido como milisegundos UTC a medianoche
+// (jetpack-compose/DatePicker: `props.onDateSelected?.(new Date(date))`), así
+// que en cualquier zona al oeste de Greenwich la hora local de ese instante es
+// la tarde del día ANTERIOR. Leerlo con getDate() devolvía el día menos uno:
+// en Chile, elegir el 9 de febrero guardaba el 8, y encontrarlo costó una
+// sesión entera porque el asistente no lo mostraba (ahí onCambio solo escribe
+// estado local y el usuario no vuelve a mirar la fecha que acaba de poner).
+//
+// toISOString() serviría igual, pero cortar el string escondería que el dato
+// ya viene en UTC, que es justo lo que confundió antes.
 function aISO(fecha: Date): string {
-  const mes = String(fecha.getMonth() + 1).padStart(2, '0');
-  const dia = String(fecha.getDate()).padStart(2, '0');
-  return `${fecha.getFullYear()}-${mes}-${dia}`;
+  const mes = String(fecha.getUTCMonth() + 1).padStart(2, '0');
+  const dia = String(fecha.getUTCDate()).padStart(2, '0');
+  return `${fecha.getUTCFullYear()}-${mes}-${dia}`;
 }
