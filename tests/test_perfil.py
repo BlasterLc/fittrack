@@ -77,6 +77,9 @@ def test_resolver_devuelve_las_metas_calculadas(db_session):
     assert resuelto.completo is True
     assert resuelto.son_manuales is False
     assert resuelto.metas.calorias == 2980
+    assert resuelto.metas.prot_g == 140
+    assert resuelto.metas.carb_g == 418
+    assert resuelto.metas.fat_g == 83
 
 
 def test_resolver_sin_perfil_no_explota(db_session):
@@ -271,8 +274,11 @@ def test_endpoint_put_crea_el_perfil_y_devuelve_las_metas(client, auth_headers):
     cuerpo = r.json()
     assert cuerpo["nombre"] == "Matías"
     assert cuerpo["completo"] is True
-    assert cuerpo["metas"]["calorias"] > 0
-    assert cuerpo["mantenimiento"] > 0
+    assert cuerpo["metas"]["calorias"] == 2980
+    assert cuerpo["metas"]["prot_g"] == 140
+    assert cuerpo["metas"]["carb_g"] == 418
+    assert cuerpo["metas"]["fat_g"] == 83
+    assert cuerpo["mantenimiento"] == 2705
 
 
 def test_endpoint_put_y_despues_get_devuelven_lo_mismo(client, auth_headers):
