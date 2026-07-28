@@ -1,17 +1,9 @@
 import { View, Text, StyleSheet, ActivityIndicator, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, type Href } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { usePerfil } from '@/hooks/usePerfil';
 import { MetasResumen } from '@/components/MetasResumen';
 import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
-
-// Expo Router solo tipa las rutas que ya existen como archivo, y
-// "asistente.tsx" lo crea la Tarea 6, todavía no. El literal directo no
-// pasa tsc hasta entonces, así que se tipa vía Href sobre un string ancho
-// (patrón documentado en docs.expo.dev/router para rutas dinámicas: no es
-// "as any", conserva la forma de Href). Cuando exista el archivo, esto
-// puede volver a ser el literal sin más.
-const RUTA_ASISTENTE: string = '/perfil/asistente';
 
 export default function Perfil() {
   const router = useRouter();
@@ -50,7 +42,7 @@ export default function Perfil() {
               </Text>
               <Pressable
                 style={styles.boton}
-                onPress={() => router.push(RUTA_ASISTENTE as Href)}
+                onPress={() => router.push('/perfil/asistente')}
                 accessibilityRole="button"
               >
                 <Text style={styles.botonTexto}>Completar mi ficha</Text>
