@@ -1,13 +1,64 @@
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { usePerfil } from '@/hooks/usePerfil';
+import { HojaOpciones } from '@/components/HojaOpciones';
+import { CampoFecha } from '@/components/CampoFecha';
 import { MetasResumen } from '@/components/MetasResumen';
+import { Fila, FilaNumero } from '@/components/CamposPerfil';
+import { useGuardarPerfil, usePerfil } from '@/hooks/usePerfil';
+import { useDebounce } from '@/hooks/useDebounce';
+import {
+  OPCIONES_ACTIVIDAD,
+  OPCIONES_OBJETIVO,
+  OPCIONES_SEXO,
+  borradorDesde,
+  etiquetaDe,
+  fechaLegible,
+  type FichaBorrador,
+} from '@/lib/perfil';
 import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
 
 export default function Perfil() {
   const router = useRouter();
   const { data: perfil, isLoading, isError } = usePerfil();
+  const guardar = useGuardarPerfil();
+  const [hoja, setHoja] = useState<'sexo' | 'actividad' | 'objetivo' | null>(null);
+
+  // Cada campo guarda al confirmarse. El PUT converge y describe el estado
+  // final, así que se manda la ficha completa con el cambio aplicado; no hay
+  // "guardar parcial". La respuesta siembra ['perfil'], así que las metas de
+  // arriba se actualizan solas.
+  //
+  // Ojo: NO se copia el perfil del servidor a un estado local. En la Fase 5b
+  // ese patrón causó un bug real — el efecto que hidrataba el editor volvía a
+  // correr con cada refetch y pisaba lo que el usuario estaba escribiendo.
+  // Acá la única fuente de verdad es la consulta.
+  function guardarCambio(cambios: Partial<FichaBorrador>) {
+    if (!perfil) return;
+    guardar.mutate({ ...borradorDesde(perfil), ...cambios });
+  }
+
+  // Altura y peso son campos de texto: guardar con cada tecla serían cuatro
+  // peticiones al escribir "78.5". Se guarda un valor "pendiente" local (no
+  // sincronizado desde el perfil por efecto — eso sería el mismo bug de la
+  // Fase 5b, ahora en la escritura) y se manda recién cuando ese valor se
+  // asienta. "tocado" evita que el guardado dispare al montar el componente.
+  const [alturaPendiente, setAlturaPendiente] = useState<number | null>(null);
+  const alturaTocada = useRef(false);
+  const alturaDebounced = useDebounce(alturaPendiente, 500);
+  useEffect(() => {
+    if (!alturaTocada.current) return;
+    guardarCambio({ altura_cm: alturaDebounced });
+  }, [alturaDebounced]);
+
+  const [pesoPendiente, setPesoPendiente] = useState<number | null>(null);
+  const pesoTocado = useRef(false);
+  const pesoDebounced = useDebounce(pesoPendiente, 500);
+  useEffect(() => {
+    if (!pesoTocado.current) return;
+    guardarCambio({ peso_kg: pesoDebounced });
+  }, [pesoDebounced]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -49,8 +100,85 @@ export default function Perfil() {
               </Pressable>
             </View>
           )}
+
+          <Text style={[styles.seccion, styles.seccionSiguiente]}>Tus datos</Text>
+
+          <Fila
+            etiqueta="Nombre"
+            valor={perfil.nombre}
+            onPress={() => router.push('/perfil/asistente')}
+          />
+          <Fila
+            etiqueta="Sexo"
+            valor={etiquetaDe(OPCIONES_SEXO, perfil.sexo)}
+            onPress={() => setHoja('sexo')}
+          />
+          <CampoFecha
+            valor={perfil.fecha_nacimiento}
+            onCambio={(iso) => guardarCambio({ fecha_nacimiento: iso })}
+          >
+            <Fila etiqueta="Fecha de nacimiento" valor={fechaLegible(perfil.fecha_nacimiento)} />
+          </CampoFecha>
+          <FilaNumero
+            etiqueta="Altura"
+            unidad="cm"
+            valor={alturaPendiente ?? perfil.altura_cm}
+            onCambio={(n) => {
+              alturaTocada.current = true;
+              setAlturaPendiente(n);
+            }}
+          />
+          <FilaNumero
+            etiqueta="Peso"
+            unidad="kg"
+            valor={pesoPendiente ?? perfil.peso_kg}
+            decimal
+            onCambio={(n) => {
+              pesoTocado.current = true;
+              setPesoPendiente(n);
+            }}
+          />
+          <Fila
+            etiqueta="Actividad"
+            valor={etiquetaDe(OPCIONES_ACTIVIDAD, perfil.actividad)}
+            onPress={() => setHoja('actividad')}
+          />
+          <Fila
+            etiqueta="Objetivo"
+            valor={etiquetaDe(OPCIONES_OBJETIVO, perfil.objetivo)}
+            onPress={() => setHoja('objetivo')}
+          />
+
+          {guardar.isError && (
+            <Text style={styles.errorLinea}>{(guardar.error as Error).message}</Text>
+          )}
         </ScrollView>
       )}
+
+      <HojaOpciones
+        visible={hoja === 'sexo'}
+        titulo="Sexo"
+        opciones={OPCIONES_SEXO}
+        valor={perfil?.sexo ?? null}
+        onElegir={(v) => guardarCambio({ sexo: v })}
+        onCerrar={() => setHoja(null)}
+      />
+      <HojaOpciones
+        visible={hoja === 'actividad'}
+        titulo="¿Cuánto te mueves?"
+        opciones={OPCIONES_ACTIVIDAD}
+        valor={perfil?.actividad ?? null}
+        onElegir={(v) => guardarCambio({ actividad: v })}
+        onCerrar={() => setHoja(null)}
+      />
+      <HojaOpciones
+        visible={hoja === 'objetivo'}
+        titulo="¿Qué buscas?"
+        opciones={OPCIONES_OBJETIVO}
+        valor={perfil?.objetivo ?? null}
+        onElegir={(v) => guardarCambio({ objetivo: v })}
+        onCerrar={() => setHoja(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -72,6 +200,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     marginBottom: spacing.md,
   },
+  seccionSiguiente: { marginTop: spacing.xxl },
   vacio: { gap: spacing.md },
   vacioTitulo: { color: colors.ink, fontFamily: fonts.semibold, fontSize: fontSize.lg },
   vacioTexto: {
@@ -96,5 +225,11 @@ const styles = StyleSheet.create({
     fontSize: fontSize.base,
     paddingHorizontal: spacing.xl,
     marginTop: spacing.lg,
+  },
+  errorLinea: {
+    color: colors.danger,
+    fontFamily: fonts.regular,
+    fontSize: fontSize.sm,
+    marginTop: spacing.md,
   },
 });
