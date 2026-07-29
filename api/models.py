@@ -172,3 +172,82 @@ class Profile(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+class Workout(Base):
+    """Un entrenamiento hecho. Aislado por user_id (= auth.users.id, sin FK).
+
+    Llega entero en un solo POST al terminar la sesión: hasta ese momento vive
+    como borrador en el teléfono. Por eso `client_id`, que lo genera la app al
+    empezar: sin él, un doble toque en «Guardar» o un reintento tras un timeout
+    duplicarían la sesión completa.
+    """
+
+    __tablename__ = "workouts"
+    __table_args__ = (
+        UniqueConstraint("user_id", "client_id", name="uq_entrenamiento_cliente"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    client_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    # Nullable: el spec deja la puerta abierta a entrenar sin rutina. La FK sí
+    # existe acá porque las rutinas se archivan y nunca se borran (5b).
+    routine_id: Mapped[int | None] = mapped_column(
+        ForeignKey("routines.id"), nullable=True
+    )
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ended_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    ejercicios: Mapped[list["WorkoutExercise"]] = relationship(
+        back_populates="entrenamiento",
+        cascade="all, delete-orphan",
+        order_by="WorkoutExercise.orden",
+    )
+
+
+class WorkoutExercise(Base):
+    """Un ejercicio dentro de un entrenamiento, en el orden en que se hizo.
+
+    Solo existe si tuvo al menos una serie completada: saltarse un ejercicio no
+    es una acción, es simplemente no hacerlo, y no deja rastro.
+    """
+
+    __tablename__ = "workout_exercises"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    workout_id: Mapped[int] = mapped_column(
+        ForeignKey("workouts.id", ondelete="CASCADE"), nullable=False
+    )
+    # Sin ForeignKey, por la misma razón que en RoutineExercise: la ingesta del
+    # catálogo converge borrando lo que sobra. Con RESTRICT fallaría la ingesta;
+    # con CASCADE borraría entrenamientos en silencio. Se valida en el servicio.
+    catalog_id: Mapped[str] = mapped_column(String(8), nullable=False, index=True)
+    orden: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    entrenamiento: Mapped["Workout"] = relationship(back_populates="ejercicios")
+    series: Mapped[list["WorkoutSet"]] = relationship(
+        back_populates="ejercicio",
+        cascade="all, delete-orphan",
+        order_by="WorkoutSet.orden",
+    )
+
+
+class WorkoutSet(Base):
+    """Una serie: las repeticiones y los kilos que efectivamente se hicieron."""
+
+    __tablename__ = "workout_sets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    workout_exercise_id: Mapped[int] = mapped_column(
+        ForeignKey("workout_exercises.id", ondelete="CASCADE"), nullable=False
+    )
+    orden: Mapped[int] = mapped_column(Integer, nullable=False)
+    reps: Mapped[int] = mapped_column(Integer, nullable=False)
+    # 0 en los ejercicios de peso corporal.
+    weight_kg: Mapped[float] = mapped_column(Float, nullable=False)
+    completed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    ejercicio: Mapped["WorkoutExercise"] = relationship(back_populates="series")
