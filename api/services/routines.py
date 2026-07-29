@@ -181,6 +181,14 @@ def reemplazar(
     limpio = _validar(sesion, nombre, catalog_ids)
 
     rutina.nombre = limpio
+    # Lo que se hizo la última vez vive en la fila, y acá las filas se borran y
+    # se vuelven a crear. Sin rescatarlo antes, reordenar o agregar un
+    # ejercicio dejaría en blanco a TODOS los que sobreviven al reemplazo, y
+    # las ruedas de la sesión perderían el punto de partida.
+    defaults_previos = {
+        e.catalog_id: (e.sets_default, e.reps_default, e.weight_default)
+        for e in rutina.ejercicios
+    }
     # Las filas viejas se borran ANTES de insertar las nuevas: si un ejercicio
     # sobrevive al reemplazo, insertarlo de nuevo chocaría con
     # uq_rutina_ejercicio mientras la fila anterior sigue viva. SQLAlchemy
@@ -189,7 +197,16 @@ def reemplazar(
     rutina.ejercicios = []
     sesion.flush()
     rutina.ejercicios = [
-        RoutineExercise(catalog_id=c, orden=i) for i, c in enumerate(catalog_ids)
+        RoutineExercise(
+            catalog_id=c,
+            orden=i,
+            # Un ejercicio que entra ahora no tiene historial: queda en None,
+            # que es lo que hace arrancar las ruedas en los valores iniciales.
+            sets_default=defaults_previos.get(c, (None, None, None))[0],
+            reps_default=defaults_previos.get(c, (None, None, None))[1],
+            weight_default=defaults_previos.get(c, (None, None, None))[2],
+        )
+        for i, c in enumerate(catalog_ids)
     ]
     sesion.commit()
     sesion.refresh(rutina)

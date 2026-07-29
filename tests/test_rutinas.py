@@ -247,6 +247,72 @@ def test_reemplazar_no_deja_ejercicios_huerfanos(catalogo):
     )
 
 
+def test_reemplazar_conserva_los_defaults_de_los_ejercicios_que_sobreviven(catalogo):
+    """Editar la rutina no puede borrar lo que hiciste la última vez.
+
+    Los defaults los escribe el guardado de un entrenamiento y son la promesa
+    de la Fase 6: las ruedas arrancan donde quedaste. Reordenar o agregar un
+    ejercicio en el editor es la operación más normal que hay, y no puede
+    costar el historial de los que no se tocaron.
+    """
+    creada = servicio.crear(catalogo, USUARIO, "Empuje A", ["0025", "0033"])
+    entrenado = (
+        catalogo.query(RoutineExercise)
+        .filter_by(routine_id=creada.id, catalog_id="0025")
+        .one()
+    )
+    entrenado.sets_default = 3
+    entrenado.reps_default = 8
+    entrenado.weight_default = 80.0
+    catalogo.commit()
+
+    # Se agrega 0043 y se reordena; 0025 sobrevive.
+    servicio.reemplazar(catalogo, USUARIO, creada.id, "Empuje A", ["0043", "0025"])
+
+    sobreviviente = (
+        catalogo.query(RoutineExercise)
+        .filter_by(routine_id=creada.id, catalog_id="0025")
+        .one()
+    )
+    assert sobreviviente.sets_default == 3
+    assert sobreviviente.reps_default == 8
+    assert sobreviviente.weight_default == 80.0
+    # El que recién entra no tiene historial que conservar.
+    nuevo = (
+        catalogo.query(RoutineExercise)
+        .filter_by(routine_id=creada.id, catalog_id="0043")
+        .one()
+    )
+    assert nuevo.reps_default is None
+
+
+def test_reemplazar_no_resucita_los_defaults_de_un_ejercicio_que_se_saco(catalogo):
+    """Sacar un ejercicio y volver a agregarlo lo deja en blanco.
+
+    Los defaults viven en la fila de la rutina, no en un historial aparte: si
+    la fila se fue, se fue. Este test fija esa frontera para que "conservar"
+    no se implemente guardando datos de filas ya borradas.
+    """
+    creada = servicio.crear(catalogo, USUARIO, "Empuje A", ["0025"])
+    fila = (
+        catalogo.query(RoutineExercise)
+        .filter_by(routine_id=creada.id, catalog_id="0025")
+        .one()
+    )
+    fila.reps_default = 8
+    catalogo.commit()
+
+    servicio.reemplazar(catalogo, USUARIO, creada.id, "Empuje A", ["0033"])
+    servicio.reemplazar(catalogo, USUARIO, creada.id, "Empuje A", ["0033", "0025"])
+
+    vuelto = (
+        catalogo.query(RoutineExercise)
+        .filter_by(routine_id=creada.id, catalog_id="0025")
+        .one()
+    )
+    assert vuelto.reps_default is None
+
+
 def test_reemplazar_rechaza_un_ejercicio_inexistente(catalogo):
     creada = servicio.crear(catalogo, USUARIO, "Empuje A", ["0025"])
 

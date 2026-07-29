@@ -81,12 +81,16 @@ export function BarraSesion() {
         { text: 'Descartar', style: 'destructive', onPress: olvidar },
         {
           text: 'Guardar lo hecho',
-          onPress: () => {
+          onPress: async () => {
             // El fin es la última serie, nunca ahora. Con `terminadoEn` puesto,
             // la pantalla de sesión abre directo en el resumen.
             const cerrado = { ...abierto, terminadoEn: finDelBorrador(abierto) };
             setBorrador(cerrado);
-            void escribirBorrador(cerrado);
+            // Se espera la escritura antes de navegar: la pantalla de sesión
+            // lee del disco al montar, y si ganara la carrera abriría el
+            // borrador viejo en modo entrenar, que es justo lo que un
+            // entrenamiento de otro día no puede hacer.
+            await escribirBorrador(cerrado);
             router.push('/sesion');
           },
         },

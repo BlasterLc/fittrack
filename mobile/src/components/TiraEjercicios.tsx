@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
     height: TAMANO,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: colors.sesionLine,
+    borderColor: colors.sesionBorde,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.sesionSurface,

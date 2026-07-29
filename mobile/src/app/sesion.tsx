@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
   agregarSerie: {
     minHeight: 48,
     borderWidth: 1,
-    borderColor: colors.sesionLine,
+    borderColor: colors.sesionBorde,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
     minWidth: 48,
     paddingHorizontal: spacing.lg,
     borderWidth: 1,
-    borderColor: colors.sesionLine,
+    borderColor: colors.sesionBorde,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',

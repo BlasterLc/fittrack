@@ -117,6 +117,43 @@ def test_las_series_se_guardan_con_sus_valores_y_en_orden(db_session):
     ]
 
 
+def test_cada_serie_guarda_su_propia_marca_de_tiempo(db_session):
+    """`completed_at` es el único dato temporal por serie y nadie lo afirmaba.
+
+    Es lo que va a leer la Fase 7 para la progresión de un ejercicio, así que
+    aplastarlo a una constante —o cruzarlo con `started_at`— tiene que ponerse
+    rojo acá y no descubrirse una fase más tarde.
+    """
+    sembrar_catalogo(db_session)
+    primera = dt.datetime(2026, 7, 28, 22, 44, tzinfo=dt.timezone.utc)
+    segunda = dt.datetime(2026, 7, 28, 22, 51, tzinfo=dt.timezone.utc)
+    datos = cuerpo()
+    datos["ejercicios"][0]["series"][0]["completed_at"] = primera
+    datos["ejercicios"][0]["series"][1]["completed_at"] = segunda
+
+    servicio.guardar(db_session, USUARIO, datos)
+
+    series = (
+        db_session.query(WorkoutSet).order_by(WorkoutSet.orden).all()
+    )
+    assert [s.completed_at for s in series] == [primera, segunda]
+
+
+def test_la_duracion_se_trunca_hacia_abajo_no_se_redondea(db_session):
+    """52 min 40 s son 52 minutos entrenados, no 53.
+
+    Todos los demás casos usan minutos exactos, así que sin este test da igual
+    escribir `//` que `round`.
+    """
+    sembrar_catalogo(db_session)
+
+    resumen = servicio.guardar(
+        db_session, USUARIO, cuerpo(ended_at=INICIO + dt.timedelta(minutes=52, seconds=40))
+    )
+
+    assert resumen["duracion_min"] == 52
+
+
 def test_el_mismo_client_id_no_crea_dos_entrenamientos(db_session):
     sembrar_catalogo(db_session)
 
@@ -397,6 +434,25 @@ def test_agregar_un_ejercicio_que_ya_esta_en_la_rutina_no_lo_duplica(db_session)
     assert [e.catalog_id for e in rutina.ejercicios] == ["0025", "0031"]
 
 
+def test_no_se_agrega_a_la_rutina_un_ejercicio_que_no_se_hizo(db_session):
+    """A la rutina solo entra lo que efectivamente se entrenó.
+
+    `agregar_a_rutina` viene del cliente y hay que validarlo contra los
+    ejercicios de ESTE entrenamiento, no contra el catálogo entero: si no, un
+    cuerpo armado a mano mete en la rutina cualquier ejercicio que exista.
+    """
+    sembrar_catalogo(db_session)
+    rutina = sembrar_rutina(db_session, catalog_ids=("0025",))
+
+    # 0031 existe en el catálogo, pero no se hizo en este entrenamiento.
+    servicio.guardar(
+        db_session, USUARIO, cuerpo(routine_id=rutina.id, agregar_a_rutina=["0031"])
+    )
+
+    db_session.refresh(rutina)
+    assert [e.catalog_id for e in rutina.ejercicios] == ["0025"]
+
+
 def test_no_se_agrega_a_la_rutina_un_ejercicio_que_no_esta_en_el_catalogo(db_session):
     """`routine_exercises` no tiene FK al catálogo: la basura entraría igual."""
     sembrar_catalogo(db_session)
@@ -505,6 +561,23 @@ def test_post_sin_token_da_401(client, db_session):
 def test_post_sin_ejercicios_da_422(client, db_session, auth_headers):
     sembrar_catalogo(db_session)
     r = client.post("/api/workouts", json=cuerpo_json(ejercicios=[]), headers=auth_headers)
+    assert r.status_code == 422
+
+
+def test_post_con_un_ejercicio_sin_series_da_422(client, db_session, auth_headers):
+    """Un ejercicio sin series no es "no hice nada": es un cuerpo inválido.
+
+    Lo frena `min_length=1` en el esquema, y sin este test ese constraint no
+    tenía quién lo sostuviera. Importa porque el servicio lee `series[0]` para
+    los defaults: si el esquema deja pasar la lista vacía, el resultado no es
+    un 422 en español sino un IndexError y un 500 pelado.
+    """
+    sembrar_catalogo(db_session)
+    datos = cuerpo_json()
+    datos["ejercicios"][0]["series"] = []
+
+    r = client.post("/api/workouts", json=datos, headers=auth_headers)
+
     assert r.status_code == 422
 
 

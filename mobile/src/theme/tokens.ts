@@ -22,7 +22,14 @@ export const colors = {
   // ocupa la pantalla entera para que el modo se lea sin leer. Solo acá.
   sesionBg: '#232a63',
   sesionSurface: '#1a1f4d',
+  // Separadores: no delimitan nada tocable, así que no les aplica el 3:1 y
+  // pueden quedar tenues.
   sesionLine: '#3a44a0',
+  // El contorno de un control SÍ necesita 3:1 (WCAG 1.4.11), y `sesionLine`
+  // da 1,59:1 sobre `sesionBg`: «Terminar» y «+ Agregar serie» son botones
+  // contorneados, así que el borde es su único límite visual y era invisible.
+  // Este da 3,62:1 sobre `sesionBg` y 4,25:1 sobre `sesionSurface`.
+  sesionBorde: '#7080d4',
   sesionInk: '#dfe3ff',
   // `muted` da 4,00:1 sobre `sesionBg` (falla el 4,5:1 de texto normal, es un
   // fondo más claro que los del resto de la app). Este gris es apenas más
