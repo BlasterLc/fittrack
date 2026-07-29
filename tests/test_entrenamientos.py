@@ -299,3 +299,124 @@ def test_un_entrenamiento_de_otro_usuario_no_se_ve(db_session):
 
     assert db_session.query(Workout).count() == 2
     assert del_otro["id"] != servicio.guardar(db_session, USUARIO, cuerpo())["id"]
+
+
+def test_los_defaults_salen_de_la_primera_serie_no_de_la_ultima(db_session):
+    """Con 8x80 y 5x75, el default queda en 8 y 80.
+
+    Si saliera de la última, la meta bajaría sola cada entrenamiento.
+    """
+    sembrar_catalogo(db_session)
+    rutina = sembrar_rutina(db_session)
+
+    servicio.guardar(db_session, USUARIO, cuerpo(routine_id=rutina.id))
+
+    fila = db_session.query(RoutineExercise).filter_by(routine_id=rutina.id).one()
+    assert fila.sets_default == 2
+    assert fila.reps_default == 8
+    assert fila.weight_default == 80.0
+
+
+def test_un_ejercicio_agregado_se_suma_a_la_rutina_si_se_confirma(db_session):
+    sembrar_catalogo(db_session)
+    rutina = sembrar_rutina(db_session, catalog_ids=("0025",))
+    con_agregado = cuerpo(routine_id=rutina.id, agregar_a_rutina=["0031"])
+    con_agregado["ejercicios"].append(
+        {
+            "catalog_id": "0031",
+            "orden": 1,
+            "series": [{"orden": 0, "reps": 12, "weight_kg": 25.0, "completed_at": FIN}],
+        }
+    )
+
+    servicio.guardar(db_session, USUARIO, con_agregado)
+
+    db_session.refresh(rutina)
+    assert [e.catalog_id for e in rutina.ejercicios] == ["0025", "0031"]
+    agregado = [e for e in rutina.ejercicios if e.catalog_id == "0031"][0]
+    assert agregado.orden == 1
+    assert agregado.reps_default == 12
+
+
+def test_un_ejercicio_agregado_sin_confirmar_no_toca_la_rutina(db_session):
+    """Se hizo sobre la marcha y no se confirmó: la rutina queda como estaba.
+
+    Sus defaults tampoco se guardan, porque no tiene fila en `routine_exercises`.
+    """
+    sembrar_catalogo(db_session)
+    rutina = sembrar_rutina(db_session, catalog_ids=("0025",))
+    sin_confirmar = cuerpo(routine_id=rutina.id, agregar_a_rutina=[])
+    sin_confirmar["ejercicios"].append(
+        {
+            "catalog_id": "0031",
+            "orden": 1,
+            "series": [{"orden": 0, "reps": 12, "weight_kg": 25.0, "completed_at": FIN}],
+        }
+    )
+
+    servicio.guardar(db_session, USUARIO, sin_confirmar)
+
+    db_session.refresh(rutina)
+    assert [e.catalog_id for e in rutina.ejercicios] == ["0025"]
+
+
+def test_una_rutina_archivada_no_recibe_defaults_ni_agregados(db_session):
+    """Ya no se usa: ensuciarla con los defaults de hoy no le sirve a nadie."""
+    sembrar_catalogo(db_session)
+    rutina = sembrar_rutina(db_session)
+    rutina.archived_at = FIN
+    db_session.commit()
+    con_agregado = cuerpo(routine_id=rutina.id, agregar_a_rutina=["0031"])
+    con_agregado["ejercicios"].append(
+        {
+            "catalog_id": "0031",
+            "orden": 1,
+            "series": [{"orden": 0, "reps": 12, "weight_kg": 25.0, "completed_at": FIN}],
+        }
+    )
+
+    servicio.guardar(db_session, USUARIO, con_agregado)
+
+    fila = db_session.query(RoutineExercise).filter_by(routine_id=rutina.id).one()
+    assert fila.catalog_id == "0025"
+    assert fila.reps_default is None
+
+
+def test_agregar_un_ejercicio_que_ya_esta_en_la_rutina_no_lo_duplica(db_session):
+    """`uq_rutina_ejercicio` no perdona: repetirlo rompería el guardado entero."""
+    sembrar_catalogo(db_session)
+    rutina = sembrar_rutina(db_session, catalog_ids=("0025", "0031"))
+
+    servicio.guardar(
+        db_session, USUARIO, cuerpo(routine_id=rutina.id, agregar_a_rutina=["0025"])
+    )
+
+    db_session.refresh(rutina)
+    assert [e.catalog_id for e in rutina.ejercicios] == ["0025", "0031"]
+
+
+def test_no_se_agrega_a_la_rutina_un_ejercicio_que_no_esta_en_el_catalogo(db_session):
+    """`routine_exercises` no tiene FK al catálogo: la basura entraría igual."""
+    sembrar_catalogo(db_session)
+    rutina = sembrar_rutina(db_session, catalog_ids=("0025",))
+    con_fantasma = cuerpo(routine_id=rutina.id, agregar_a_rutina=["9999"])
+    con_fantasma["ejercicios"].append(
+        {
+            "catalog_id": "9999",
+            "orden": 1,
+            "series": [{"orden": 0, "reps": 10, "weight_kg": 20.0, "completed_at": FIN}],
+        }
+    )
+
+    servicio.guardar(db_session, USUARIO, con_fantasma)
+
+    db_session.refresh(rutina)
+    assert [e.catalog_id for e in rutina.ejercicios] == ["0025"]
+
+
+# El plan pedía además `test_la_rutina_de_otro_usuario_no_se_toca`, que llamaba a
+# `guardar` con otro usuario esperando que siguiera adelante sin tocar la rutina
+# ajena. Quedó obsoleto: desde 4e3070b `guardar` rechaza el entrenamiento entero
+# con `EntrenamientoInvalido`, así que esa llamada ya no llega nunca a la rutina.
+# La garantía la cubre, y de forma más fuerte,
+# `test_la_rutina_de_otro_usuario_se_rechaza`.
