@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from api.models import CatalogExercise, Workout, WorkoutExercise, WorkoutSet
+from api.services import routines
 
 
 class EntrenamientoInvalido(ValueError):
@@ -69,6 +70,10 @@ def guardar(sesion: Session, user_id: str, datos: dict) -> dict:
     El entrenamiento llega entero porque la sesión vivió en el teléfono: no hay
     guardado incremental que reconciliar, solo un insert grande o ninguno.
     """
+    # La idempotencia va primero, antes que cualquier validación: lo que ya está
+    # guardado se devuelve tal cual. Un reintento no puede fallar por reglas que
+    # cambiaron después de guardarlo (una ficha del catálogo que la ingesta borró,
+    # una rutina que dejó de existir); el entrenamiento ya es un hecho.
     ya_existe = _buscar_por_cliente(sesion, user_id, datos["client_id"])
     if ya_existe is not None:
         return _resumen(sesion, ya_existe, omitidos=[])
@@ -77,6 +82,14 @@ def guardar(sesion: Session, user_id: str, datos: dict) -> dict:
     fin: datetime = datos["ended_at"]
     if fin < inicio:
         raise EntrenamientoInvalido("El entrenamiento no puede terminar antes de empezar")
+
+    # Se valida antes de insertar, no atrapando la violación de la FK: así el
+    # usuario recibe un mensaje y no un 500. Una rutina archivada se acepta,
+    # porque se archiva en vez de borrar justamente para no dejar huérfano al
+    # historial que la referencia.
+    routine_id = datos.get("routine_id")
+    if routine_id is not None and routines.obtener(sesion, user_id, routine_id) is None:
+        raise EntrenamientoInvalido("La rutina del entrenamiento no existe o no te pertenece")
 
     pedidos = [e["catalog_id"] for e in datos["ejercicios"]]
     existentes = set(
@@ -97,7 +110,7 @@ def guardar(sesion: Session, user_id: str, datos: dict) -> dict:
     entrenamiento = Workout(
         user_id=user_id,
         client_id=datos["client_id"],
-        routine_id=datos.get("routine_id"),
+        routine_id=routine_id,
         started_at=inicio,
         ended_at=fin,
     )

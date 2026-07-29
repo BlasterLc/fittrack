@@ -216,6 +216,66 @@ def test_los_ejercicios_validos_se_guardan_todos_y_el_orden_se_compacta(db_sessi
     assert [(f.catalog_id, f.orden) for f in filas] == [("0025", 0), ("0031", 1)]
 
 
+def sembrar_rutina(sesion, catalog_ids=("0025",), user_id=USUARIO):
+    rutina = Routine(user_id=user_id, nombre="Empuje")
+    rutina.ejercicios = [
+        RoutineExercise(catalog_id=c, orden=i) for i, c in enumerate(catalog_ids)
+    ]
+    sesion.add(rutina)
+    sesion.commit()
+    sesion.refresh(rutina)
+    return rutina
+
+
+def test_una_rutina_propia_queda_enlazada_al_entrenamiento(db_session):
+    sembrar_catalogo(db_session)
+    rutina = sembrar_rutina(db_session)
+
+    resumen = servicio.guardar(db_session, USUARIO, cuerpo(routine_id=rutina.id))
+
+    assert db_session.get(Workout, resumen["id"]).routine_id == rutina.id
+
+
+def test_una_rutina_que_no_existe_se_rechaza(db_session):
+    """Sin este chequeo la FK revienta y el usuario ve un 500 sin mensaje."""
+    sembrar_catalogo(db_session)
+
+    with pytest.raises(servicio.EntrenamientoInvalido):
+        servicio.guardar(db_session, USUARIO, cuerpo(routine_id=999))
+
+
+def test_la_rutina_de_otro_usuario_se_rechaza(db_session):
+    """No alcanza con no tocarla: el entrenamiento tampoco puede apuntarle."""
+    sembrar_catalogo(db_session)
+    ajena = sembrar_rutina(db_session, user_id=OTRO)
+
+    with pytest.raises(servicio.EntrenamientoInvalido):
+        servicio.guardar(db_session, USUARIO, cuerpo(routine_id=ajena.id))
+
+    assert db_session.query(Workout).count() == 0
+
+
+def test_una_rutina_archivada_propia_se_acepta(db_session):
+    """Se archiva en vez de borrar para que el historial no quede huérfano."""
+    sembrar_catalogo(db_session)
+    rutina = sembrar_rutina(db_session)
+    rutina.archived_at = FIN
+    db_session.commit()
+
+    resumen = servicio.guardar(db_session, USUARIO, cuerpo(routine_id=rutina.id))
+
+    assert db_session.get(Workout, resumen["id"]).routine_id == rutina.id
+
+
+def test_sin_rutina_el_entrenamiento_se_guarda_igual(db_session):
+    """Entrenar suelto, sin rutina, es un caso válido."""
+    sembrar_catalogo(db_session)
+
+    resumen = servicio.guardar(db_session, USUARIO, cuerpo(routine_id=None))
+
+    assert db_session.get(Workout, resumen["id"]).routine_id is None
+
+
 def test_si_ningun_ejercicio_existe_se_rechaza(db_session):
     sembrar_catalogo(db_session, ids=("0031",))
 
