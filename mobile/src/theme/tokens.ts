@@ -18,6 +18,16 @@ export const colors = {
   prot: '#5f74e4',
   carb: '#c18500',
   fat: '#00a38f',
+  // Superficie de la sesión de entrenamiento: estrategia "committed", el índigo
+  // ocupa la pantalla entera para que el modo se lea sin leer. Solo acá.
+  sesionBg: '#232a63',
+  sesionSurface: '#1a1f4d',
+  sesionLine: '#3a44a0',
+  sesionInk: '#dfe3ff',
+  // `muted` da 4,00:1 sobre `sesionBg` (falla el 4,5:1 de texto normal, es un
+  // fondo más claro que los del resto de la app). Este gris es apenas más
+  // claro y da 4,65:1: mismo rol de "sin énfasis", pero acá nomás.
+  sesionMuted: '#9599a3',
 } as const;
 
 export const spacing = {
