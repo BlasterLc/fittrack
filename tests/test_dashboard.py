@@ -103,3 +103,90 @@ def test_dashboard_con_perfil_incompleto_cae_a_la_meta_generica(
 
     assert cuerpo["calorias"]["meta"] == 2200
     assert cuerpo["metas_macros"] is None
+
+
+def test_el_dashboard_muestra_el_entrenamiento_de_hoy(client, db_session, auth_headers):
+    from tests.test_entrenamientos import sembrar_catalogo
+    from api.models import Workout, WorkoutExercise, WorkoutSet
+    import datetime as dt
+
+    sembrar_catalogo(db_session)
+    ahora = dt.datetime.now(dt.timezone.utc)
+    entrenamiento = Workout(
+        user_id="11111111-1111-1111-1111-111111111111",
+        client_id="hoy",
+        started_at=ahora - dt.timedelta(minutes=45),
+        ended_at=ahora,
+    )
+    entrenamiento.ejercicios = [
+        WorkoutExercise(
+            catalog_id="0025", orden=0,
+            series=[
+                WorkoutSet(orden=0, reps=8, weight_kg=80.0, completed_at=ahora),
+                WorkoutSet(orden=1, reps=8, weight_kg=80.0, completed_at=ahora),
+            ],
+        )
+    ]
+    db_session.add(entrenamiento)
+    db_session.commit()
+
+    cuerpo = client.get("/api/dashboard", headers=auth_headers).json()
+
+    assert cuerpo["entrenamiento"]["series"] == 2
+    assert cuerpo["entrenamiento"]["duracion_min"] == 45
+
+
+def test_sin_entrenar_hoy_el_dashboard_devuelve_null(client, db_session, auth_headers):
+    assert client.get("/api/dashboard", headers=auth_headers).json()["entrenamiento"] is None
+
+
+def _crear_entrenamiento(db_session, user_id, client_id, dias_atras=0):
+    """Un entrenamiento de 30 minutos con una serie, para las pruebas de
+    aislamiento del resumen diario."""
+    import datetime as dt
+
+    from api.models import Workout, WorkoutExercise, WorkoutSet
+
+    fin = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=dias_atras)
+    entrenamiento = Workout(
+        user_id=user_id,
+        client_id=client_id,
+        started_at=fin - dt.timedelta(minutes=30),
+        ended_at=fin,
+    )
+    entrenamiento.ejercicios = [
+        WorkoutExercise(
+            catalog_id="0025", orden=0,
+            series=[WorkoutSet(orden=0, reps=8, weight_kg=80.0, completed_at=fin)],
+        )
+    ]
+    db_session.add(entrenamiento)
+    db_session.commit()
+
+
+def test_el_dashboard_ignora_entrenamientos_de_otros_usuarios(client, db_session, auth_headers):
+    _crear_entrenamiento(db_session, "otro-usuario", client_id="ajeno")
+
+    cuerpo = client.get("/api/dashboard", headers=auth_headers).json()
+
+    assert cuerpo["entrenamiento"] is None
+
+
+def test_el_dashboard_no_cuenta_entrenamientos_de_otro_dia(client, db_session, auth_headers):
+    yo = "11111111-1111-1111-1111-111111111111"
+    _crear_entrenamiento(db_session, yo, client_id="ayer", dias_atras=2)
+
+    cuerpo = client.get("/api/dashboard", headers=auth_headers).json()
+
+    assert cuerpo["entrenamiento"] is None
+
+
+def test_el_dashboard_suma_dos_entrenamientos_del_mismo_dia(client, db_session, auth_headers):
+    yo = "11111111-1111-1111-1111-111111111111"
+    _crear_entrenamiento(db_session, yo, client_id="manana")
+    _crear_entrenamiento(db_session, yo, client_id="tarde")
+
+    cuerpo = client.get("/api/dashboard", headers=auth_headers).json()
+
+    assert cuerpo["entrenamiento"]["series"] == 2
+    assert cuerpo["entrenamiento"]["duracion_min"] == 60

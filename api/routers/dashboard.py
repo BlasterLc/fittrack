@@ -9,6 +9,7 @@ from api.config import Config
 from api.database import get_db
 from api.models import Meal, MealItem
 from api.schemas import Calorias, Macros, MetasMacros, ResumenDia
+from api.services import entrenamientos as servicio_entrenamientos
 from api.services import perfil as servicio_perfil
 
 router = APIRouter(
@@ -23,11 +24,12 @@ def resumen_del_dia(
     user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> ResumenDia:
-    """Resumen del día del usuario. Suma las comidas de hoy; entrenamiento y
-    peso siguen en null hasta sus fases."""
+    """Resumen del día del usuario. Suma las comidas de hoy y el entrenamiento
+    de hoy; peso sigue en null hasta su fase."""
     ahora = datetime.now(timezone.utc)
     inicio = ahora.replace(hour=0, minute=0, second=0, microsecond=0)
     fin = inicio + timedelta(days=1)
+    hoy = inicio.date()
 
     filas = db.execute(
         select(MealItem.calorias, MealItem.prot_g, MealItem.carbs_g, MealItem.fat_g)
@@ -64,6 +66,6 @@ def resumen_del_dia(
             fat=sum(f.fat_g for f in filas),
         ),
         metas_macros=metas_macros,
-        entrenamiento=None,
+        entrenamiento=servicio_entrenamientos.resumen_del_dia(db, user_id, hoy),
         peso=None,
     )

@@ -1,8 +1,8 @@
 """Lógica de entrenamientos. Los routers no deciden nada, solo traducen HTTP."""
 
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -19,6 +19,29 @@ from api.services import routines
 
 class EntrenamientoInvalido(ValueError):
     """El cuerpo no cumple las reglas: sin ejercicios válidos, fechas al revés…"""
+
+
+def resumen_del_dia(sesion: Session, user_id: str, dia: date) -> dict | None:
+    """Series y minutos de lo entrenado ese día, o None si no entrenó.
+
+    Si hubo más de un entrenamiento se suman: son dos sesiones del mismo día.
+    """
+    entrenamientos = list(
+        sesion.execute(
+            select(Workout).where(
+                Workout.user_id == user_id,
+                func.date(Workout.started_at) == dia,
+            )
+        ).scalars()
+    )
+    if not entrenamientos:
+        return None
+
+    series = sum(len(e.series) for w in entrenamientos for e in w.ejercicios)
+    minutos = sum(
+        int((w.ended_at - w.started_at).total_seconds() // 60) for w in entrenamientos
+    )
+    return {"series": series, "duracion_min": minutos}
 
 
 def _buscar_por_cliente(sesion: Session, user_id: str, client_id: str) -> Workout | None:
