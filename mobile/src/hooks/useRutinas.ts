@@ -33,10 +33,24 @@ export function useRutinas(archivadas: boolean) {
   });
 }
 
-export function useRutina(id: number | null) {
-  return useQuery({
+/**
+ * El detalle de una rutina, como descriptor suelto.
+ *
+ * Existe aparte del hook porque «Empezar» lo necesita de forma imperativa, al
+ * tocar: la lista solo trae resúmenes y el borrador de la sesión se arma con
+ * los ejercicios y sus defaults. Compartir el descriptor mantiene una sola
+ * `queryKey`, así que el fetch imperativo aprovecha lo que el hook ya cacheó.
+ */
+export function rutinaDetalleQuery(id: number | null) {
+  return {
     queryKey: ['rutinas', 'detalle', id],
     queryFn: () => apiGet<RutinaDetalle>(`/api/routines/${id}`),
+  };
+}
+
+export function useRutina(id: number | null) {
+  return useQuery({
+    ...rutinaDetalleQuery(id),
     // id null significa "rutina nueva": no hay nada que traer.
     enabled: id !== null,
   });

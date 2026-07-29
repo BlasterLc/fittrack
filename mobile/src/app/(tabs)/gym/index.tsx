@@ -3,6 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { EncabezadoPantalla } from '@/components/EncabezadoPantalla';
+import { BarraSesion } from '@/components/BarraSesion';
 import { CatalogoLista } from '@/components/CatalogoLista';
 import { RutinasLista } from '@/components/RutinasLista';
 import { Segmentado } from '@/components/Segmentado';
@@ -17,6 +18,7 @@ export default function Gym() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <EncabezadoPantalla titulo="Gym" />
+      <BarraSesion />
       <View style={styles.segmentoCaja}>
         <Segmentado
           opciones={[

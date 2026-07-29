@@ -142,7 +142,11 @@ export default function Sesion() {
     );
   }
 
-  if (paso === 'resumen' || !ejercicio) {
+  // `terminadoEn` puesto significa que el entrenamiento ya se cerró y solo
+  // falta guardarlo. Se deriva del borrador en vez de sembrar `paso` con un
+  // efecto: si no, retomar desde la barra de Gym un entrenamiento que quedó
+  // sin guardar abriría la pantalla de entrenar en vez del resumen.
+  if (paso === 'resumen' || borrador.terminadoEn !== null || !ejercicio) {
     return (
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <ResumenSesion
