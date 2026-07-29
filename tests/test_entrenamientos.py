@@ -473,3 +473,65 @@ def test_sin_rutina_no_hay_nada_que_lockear(db_session, otra_sesion):
 # con `EntrenamientoInvalido`, así que esa llamada ya no llega nunca a la rutina.
 # La garantía la cubre, y de forma más fuerte,
 # `test_la_rutina_de_otro_usuario_se_rechaza`.
+
+
+def cuerpo_json(**cambios):
+    """El mismo cuerpo, con las fechas en ISO como las manda la app."""
+    datos = cuerpo(**cambios)
+    datos["started_at"] = datos["started_at"].isoformat()
+    datos["ended_at"] = datos["ended_at"].isoformat()
+    for e in datos["ejercicios"]:
+        for s in e["series"]:
+            if not isinstance(s["completed_at"], str):
+                s["completed_at"] = s["completed_at"].isoformat()
+    return datos
+
+
+def test_post_guarda_y_devuelve_201(client, db_session, auth_headers):
+    sembrar_catalogo(db_session)
+
+    r = client.post("/api/workouts", json=cuerpo_json(), headers=auth_headers)
+
+    assert r.status_code == 201
+    assert r.json()["total_series"] == 2
+    assert r.json()["duracion_min"] == 52
+
+
+def test_post_sin_token_da_401(client, db_session):
+    sembrar_catalogo(db_session)
+    assert client.post("/api/workouts", json=cuerpo_json()).status_code == 401
+
+
+def test_post_sin_ejercicios_da_422(client, db_session, auth_headers):
+    sembrar_catalogo(db_session)
+    r = client.post("/api/workouts", json=cuerpo_json(ejercicios=[]), headers=auth_headers)
+    assert r.status_code == 422
+
+
+def test_post_con_reps_fuera_de_rango_da_422(client, db_session, auth_headers):
+    sembrar_catalogo(db_session)
+    datos = cuerpo_json()
+    datos["ejercicios"][0]["series"][0]["reps"] = 99
+    r = client.post("/api/workouts", json=datos, headers=auth_headers)
+    assert r.status_code == 422
+
+
+def test_post_repetido_devuelve_el_mismo_entrenamiento(client, db_session, auth_headers):
+    sembrar_catalogo(db_session)
+    primero = client.post("/api/workouts", json=cuerpo_json(), headers=auth_headers)
+    segundo = client.post("/api/workouts", json=cuerpo_json(), headers=auth_headers)
+    assert primero.json()["id"] == segundo.json()["id"]
+
+
+def test_post_con_rutina_inexistente_da_422_con_detalle(client, db_session, auth_headers):
+    """Cubre el desvío de 4e3070b: `guardar` rechaza la rutina inválida con
+    `EntrenamientoInvalido`, y el router tiene que traducirla a un 422 con el
+    mismo mensaje en español, no dejarla escapar como un 500."""
+    sembrar_catalogo(db_session)
+
+    r = client.post(
+        "/api/workouts", json=cuerpo_json(routine_id=999), headers=auth_headers
+    )
+
+    assert r.status_code == 422
+    assert r.json()["detail"] == "La rutina del entrenamiento no existe o no te pertenece"
