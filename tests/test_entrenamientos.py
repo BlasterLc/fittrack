@@ -1,7 +1,9 @@
 import datetime as dt
 
+import psycopg
 import pytest
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from api.models import CatalogExercise, Routine, RoutineExercise, Workout, WorkoutExercise, WorkoutSet
 from api.services import entrenamientos as servicio
@@ -412,6 +414,57 @@ def test_no_se_agrega_a_la_rutina_un_ejercicio_que_no_esta_en_el_catalogo(db_ses
 
     db_session.refresh(rutina)
     assert [e.catalog_id for e in rutina.ejercicios] == ["0025"]
+
+
+def test_guardar_serializa_los_guardados_contra_la_misma_rutina(db_session, otra_sesion):
+    """El teléfono estuvo sin señal y salen dos borradores en cola a la vez.
+
+    Si los dos confirman el mismo ejercicio nuevo para la misma rutina, sin lock
+    chocan contra `uq_rutina_ejercicio`; el `except IntegrityError` de `guardar`
+    solo sabe recuperarse del `client_id` repetido, así que re-lanza y sale un
+    500 sin mensaje. Con el lock se serializan, igual que los PUT de la 5b.
+
+    Qué prueba exactamente: que `guardar` PIDE el lock de la rutina. Que dos
+    transacciones que lo piden se serialicen es cosa de Postgres, no de este
+    código. La otra sesión toma FOR NO KEY UPDATE y no FOR UPDATE a propósito:
+    conflicta con el FOR UPDATE que tiene que pedir `guardar`, pero no con el
+    FOR KEY SHARE que toman las FK al insertar el entrenamiento y los ejercicios
+    de la rutina (verificado contra Postgres). Así lo único capaz de poner este
+    test en rojo es que `guardar` deje de pedir el lock.
+    """
+    sembrar_catalogo(db_session)
+    rutina = sembrar_rutina(db_session)
+
+    otra_sesion.execute(
+        text("SELECT id FROM routines WHERE id = :id FOR NO KEY UPDATE"),
+        {"id": rutina.id},
+    )
+
+    # Sin lock_timeout esperaría para siempre; con él, el bloqueo se vuelve un
+    # error observable y la prueba, determinista.
+    db_session.execute(text("SET LOCAL lock_timeout = '250ms'"))
+
+    with pytest.raises(OperationalError) as error:
+        servicio.guardar(db_session, USUARIO, cuerpo(routine_id=rutina.id))
+
+    assert isinstance(error.value.orig, psycopg.errors.LockNotAvailable)
+    db_session.rollback()
+    assert db_session.query(Workout).count() == 0
+
+
+def test_sin_rutina_no_hay_nada_que_lockear(db_session, otra_sesion):
+    """El camino sin rutina no toca `routines`, así que no puede bloquearse."""
+    sembrar_catalogo(db_session)
+    rutina = sembrar_rutina(db_session)
+    otra_sesion.execute(
+        text("SELECT id FROM routines WHERE id = :id FOR NO KEY UPDATE"),
+        {"id": rutina.id},
+    )
+    db_session.execute(text("SET LOCAL lock_timeout = '250ms'"))
+
+    resumen = servicio.guardar(db_session, USUARIO, cuerpo(routine_id=None))
+
+    assert db_session.get(Workout, resumen["id"]).routine_id is None
 
 
 # El plan pedía además `test_la_rutina_de_otro_usuario_no_se_toca`, que llamaba a

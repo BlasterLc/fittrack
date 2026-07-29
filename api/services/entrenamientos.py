@@ -148,7 +148,16 @@ def guardar(sesion: Session, user_id: str, datos: dict) -> dict:
     routine_id = datos.get("routine_id")
     rutina = None
     if routine_id is not None:
-        rutina = routines.obtener(sesion, user_id, routine_id)
+        # El lock va en esta lectura, que igual hay que hacer: no es una consulta
+        # de más. Serializa los guardados contra la misma rutina, igual que los
+        # PUT de la 5b. No hace falta entrenar dos veces a la vez para llegar
+        # acá: si el teléfono estuvo sin señal quedan borradores en cola y al
+        # recuperar conexión pueden salir juntos. Si los dos confirman el mismo
+        # ejercicio nuevo, sin lock chocan contra `uq_rutina_ejercicio`, y el
+        # `except IntegrityError` de más abajo solo sabe recuperarse del
+        # `client_id` repetido: re-lanzaría, y el usuario vería un 500 sin
+        # mensaje. No es decorativo: sacarlo reabre ese 500.
+        rutina = routines.obtener(sesion, user_id, routine_id, para_actualizar=True)
         if rutina is None:
             raise EntrenamientoInvalido(
                 "La rutina del entrenamiento no existe o no te pertenece"

@@ -40,6 +40,23 @@ def db_session():
 
 
 @pytest.fixture
+def otra_sesion():
+    """Una segunda conexión, para las pruebas de concurrencia.
+
+    La transacción se deshace siempre: si quedara abierta con locks tomados, el
+    `drop_all` del final de la prueba se colgaría esperándolos. Se destruye
+    antes que `recrear_tablas`, que al ser autouse se ordena primero y por eso
+    se limpia último.
+    """
+    sesion = TestSession()
+    try:
+        yield sesion
+    finally:
+        sesion.rollback()
+        sesion.close()
+
+
+@pytest.fixture
 def client(db_session):
     from fastapi.testclient import TestClient
 
