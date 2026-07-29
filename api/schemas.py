@@ -32,6 +32,18 @@ class EjercicioFicha(EjercicioResumen):
     atribucion: str
 
 
+class EjercicioDeRutina(EjercicioResumen):
+    """Ficha del catálogo más lo que hiciste la última vez en esta rutina.
+
+    Los tres son nulos hasta el primer entrenamiento del ejercicio: ahí es
+    cuando la Fase 6 los escribe.
+    """
+
+    sets_default: int | None = None
+    reps_default: int | None = None
+    weight_default: float | None = None
+
+
 class ResultadoBusqueda(BaseModel):
     total: int
     resultados: list[EjercicioResumen]
@@ -139,7 +151,7 @@ class RutinaDetalle(BaseModel):
     id: int
     nombre: str
     archived_at: datetime | None
-    ejercicios: list[EjercicioResumen]
+    ejercicios: list[EjercicioDeRutina]
     # Cuántos apuntaban a fichas que la ingesta ya borró. El editor lo avisa.
     ejercicios_faltantes: int
 

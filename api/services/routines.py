@@ -131,8 +131,26 @@ def detalle(sesion: Session, user_id: str, rutina_id: int) -> dict | None:
             select(CatalogExercise).where(CatalogExercise.id.in_(ids))
         ).scalars()
     }
-    # Se respeta el orden de la rutina, no el que devuelva la base.
-    encontrados = [fichas[c] for c in ids if c in fichas]
+    # Se respeta el orden de la rutina, no el que devuelva la base. Cada ficha
+    # viaja con lo que se hizo la última vez, que es de donde salen los valores
+    # iniciales de las ruedas de la sesión.
+    por_catalogo = {e.catalog_id: e for e in rutina.ejercicios}
+    encontrados = [
+        {
+            "id": ficha.id,
+            "nombre_es": ficha.nombre_es,
+            "body_part_es": ficha.body_part_es,
+            "equipment_es": ficha.equipment_es,
+            "target_es": ficha.target_es,
+            # gif_url lo calcula solo el esquema a partir de gif_path.
+            "gif_path": ficha.gif_path,
+            "sets_default": por_catalogo[c].sets_default,
+            "reps_default": por_catalogo[c].reps_default,
+            "weight_default": por_catalogo[c].weight_default,
+        }
+        for c in ids
+        if (ficha := fichas.get(c)) is not None
+    ]
 
     return {
         "id": rutina.id,

@@ -10,11 +10,17 @@ export type RutinaEnLista = {
   grupos_musculares: string[];
 };
 
+export type EjercicioDeRutina = EjercicioResumen & {
+  sets_default: number | null;
+  reps_default: number | null;
+  weight_default: number | null;
+};
+
 export type RutinaDetalle = {
   id: number;
   nombre: string;
   archived_at: string | null;
-  ejercicios: EjercicioResumen[];
+  ejercicios: EjercicioDeRutina[];
   ejercicios_faltantes: number;
 };
 

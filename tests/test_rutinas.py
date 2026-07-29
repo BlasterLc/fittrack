@@ -82,6 +82,17 @@ def test_borrar_la_rutina_borra_sus_ejercicios(db_session):
     assert db_session.query(RoutineExercise).count() == 0
 
 
+def sembrar_rutina(sesion, catalog_ids=("0025",), user_id=USUARIO):
+    rutina = Routine(user_id=user_id, nombre="Empuje")
+    rutina.ejercicios = [
+        RoutineExercise(catalog_id=c, orden=i) for i, c in enumerate(catalog_ids)
+    ]
+    sesion.add(rutina)
+    sesion.commit()
+    sesion.refresh(rutina)
+    return rutina
+
+
 def _crear(sesion, user_id, nombre, ids, archivada=False):
     from datetime import datetime, timezone
 
@@ -176,8 +187,8 @@ def test_detalle_trae_los_datos_del_catalogo_en_orden(catalogo):
     detalle = servicio.detalle(catalogo, USUARIO, creada.id)
 
     assert detalle["nombre"] == "Empuje A"
-    assert [e.id for e in detalle["ejercicios"]] == ["0033", "0025"]
-    assert detalle["ejercicios"][0].body_part_es == "Hombros"
+    assert [e["id"] for e in detalle["ejercicios"]] == ["0033", "0025"]
+    assert detalle["ejercicios"][0]["body_part_es"] == "Hombros"
 
 
 def test_detalle_de_otro_usuario_no_existe(catalogo):
@@ -191,7 +202,7 @@ def test_detalle_omite_los_ejercicios_borrados_del_catalogo(catalogo):
 
     detalle = servicio.detalle(catalogo, USUARIO, rutina.id)
 
-    assert [e.id for e in detalle["ejercicios"]] == ["0025"]
+    assert [e["id"] for e in detalle["ejercicios"]] == ["0025"]
     # El editor usa esta diferencia para avisar en una línea.
     assert detalle["ejercicios_faltantes"] == 1
 
@@ -220,7 +231,7 @@ def test_reemplazar_quita_agrega_y_reordena_en_una_llamada(catalogo):
     detalle = servicio.detalle(catalogo, USUARIO, creada.id)
     assert detalle["nombre"] == "Empuje B"
     # 0033 se fue, 0043 entró, y 0025 cambió de posición.
-    assert [e.id for e in detalle["ejercicios"]] == ["0043", "0025"]
+    assert [e["id"] for e in detalle["ejercicios"]] == ["0043", "0025"]
 
 
 def test_reemplazar_no_deja_ejercicios_huerfanos(catalogo):
@@ -243,7 +254,7 @@ def test_reemplazar_rechaza_un_ejercicio_inexistente(catalogo):
         servicio.reemplazar(catalogo, USUARIO, creada.id, "Empuje A", ["0025", "9999"])
 
     detalle = servicio.detalle(catalogo, USUARIO, creada.id)
-    assert [e.id for e in detalle["ejercicios"]] == ["0025"]
+    assert [e["id"] for e in detalle["ejercicios"]] == ["0025"]
 
 
 def test_reemplazar_una_rutina_ajena_no_hace_nada(catalogo):
@@ -270,7 +281,7 @@ def test_reemplazar_sana_una_rutina_con_ejercicios_borrados(catalogo):
 
     detalle = servicio.detalle(catalogo, USUARIO, rutina.id)
     assert detalle["ejercicios_faltantes"] == 0
-    assert [e.id for e in detalle["ejercicios"]] == ["0025", "0033"]
+    assert [e["id"] for e in detalle["ejercicios"]] == ["0025", "0033"]
 
 
 def test_archivar_la_saca_de_la_lista_sin_borrarla(catalogo):
@@ -385,6 +396,32 @@ def test_endpoint_archivar_y_desarchivar(client, catalogo, auth_headers):
 def test_los_endpoints_de_rutinas_exigen_token(client):
     assert client.get("/api/routines").status_code == 401
     assert client.post("/api/routines", json={}).status_code == 401
+
+
+def test_el_detalle_de_la_rutina_trae_los_defaults(client, catalogo, auth_headers):
+    from api.models import RoutineExercise
+
+    rutina = sembrar_rutina(catalogo)   # helper que ya existe en este archivo
+    fila = catalogo.query(RoutineExercise).filter_by(routine_id=rutina.id).first()
+    fila.sets_default = 3
+    fila.reps_default = 8
+    fila.weight_default = 80.0
+    catalogo.commit()
+
+    cuerpo = client.get(f"/api/routines/{rutina.id}", headers=auth_headers).json()
+
+    primero = cuerpo["ejercicios"][0]
+    assert primero["sets_default"] == 3
+    assert primero["reps_default"] == 8
+    assert primero["weight_default"] == 80.0
+    # El gif_url calculado tiene que seguir saliendo.
+    assert primero["gif_url"].startswith("http")
+
+
+def test_un_ejercicio_nunca_entrenado_trae_los_defaults_en_null(client, catalogo, auth_headers):
+    rutina = sembrar_rutina(catalogo)
+    cuerpo = client.get(f"/api/routines/{rutina.id}", headers=auth_headers).json()
+    assert cuerpo["ejercicios"][0]["reps_default"] is None
 
 
 def test_endpoint_crear_con_nombre_larguisimo_da_422(client, catalogo, auth_headers):
