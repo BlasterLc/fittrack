@@ -28,6 +28,13 @@ export const colors = {
   // fondo más claro que los del resto de la app). Este gris es apenas más
   // claro y da 4,65:1: mismo rol de "sin énfasis", pero acá nomás.
   sesionMuted: '#9599a3',
+  // Mismo problema que `sesionMuted`, pero con `danger`: da 3,98:1 sobre
+  // `sesionSurface` y 3,39:1 sobre `sesionBg` (Tarea 11, tarjeta de la serie
+  // activa), y ambos fallan el 4,5:1 de texto normal aunque en el resto de la
+  // app (sobre `bg`/`surface`) sí llega. Este rojo es más claro y da 5,42:1 /
+  // 4,61:1 en esos mismos fondos: mismo rol de "acción que pierde datos",
+  // pero solo dentro de la sesión.
+  sesionDanger: '#eb7478',
 } as const;
 
 export const spacing = {
