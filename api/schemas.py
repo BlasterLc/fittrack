@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel, computed_field
+from pydantic import BaseModel, Field, computed_field
 
 from api.services import storage
 
@@ -206,3 +206,50 @@ class GuardarPerfilRequest(BaseModel):
     objetivo: str | None = None
     # En null borra las metas escritas a mano y vuelve al cálculo automático.
     metas_manuales: MetasManualesIn | None = None
+
+
+class SerieRequest(BaseModel):
+    orden: int
+    reps: int = Field(ge=1, le=30)
+    weight_kg: float = Field(ge=0, le=200)
+    completed_at: datetime
+
+
+class EjercicioSesionRequest(BaseModel):
+    catalog_id: str
+    orden: int
+    series: list[SerieRequest] = Field(min_length=1)
+
+
+class GuardarEntrenamientoRequest(BaseModel):
+    client_id: str
+    routine_id: int | None = None
+    started_at: datetime
+    ended_at: datetime
+    ejercicios: list[EjercicioSesionRequest] = Field(min_length=1)
+    # catalog_id de los ejercicios agregados sobre la marcha que el usuario
+    # confirmó sumar a la rutina.
+    agregar_a_rutina: list[str] = Field(default_factory=list)
+
+
+class SerieGuardada(BaseModel):
+    orden: int
+    reps: int
+    weight_kg: float
+
+
+class EjercicioGuardado(BaseModel):
+    catalog_id: str
+    nombre_es: str
+    series: list[SerieGuardada]
+
+
+class EntrenamientoGuardado(BaseModel):
+    id: int
+    duracion_min: int
+    total_series: int
+    total_ejercicios: int
+    ejercicios: list[EjercicioGuardado]
+    # catalog_id que ya no existen en el catálogo. Se guarda el resto y la app
+    # avisa cuáles quedaron fuera, en vez de perder el entrenamiento entero.
+    omitidos: list[str]
