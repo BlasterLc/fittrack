@@ -6,6 +6,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useSesion } from '@/hooks/useSesion';
 import { TiraEjercicios } from '@/components/TiraEjercicios';
 import { SerieActiva } from '@/components/SerieActiva';
+import { ResumenSesion } from '@/components/ResumenSesion';
+import { useGuardarEntrenamiento } from '@/hooks/useEntrenamientos';
 import { apiGet } from '@/lib/api';
 import { tomarSeleccion } from '@/lib/seleccionEjercicios';
 import { finDelBorrador, valorInicial, type EjercicioBorrador, type SerieBorrador } from '@/lib/sesion';
@@ -30,6 +32,7 @@ function formatoReloj(segundos: number): string {
 export default function Sesion() {
   const router = useRouter();
   const { borrador, cargando, actualizar, descartar } = useSesion();
+  const guardar = useGuardarEntrenamiento();
   const [paso, setPaso] = useState<Paso>('entrenando');
   const [estadoEdicion, setEstadoEdicion] = useState<EstadoEdicion>(null);
   const [ahora, setAhora] = useState(() => Date.now());
@@ -118,16 +121,37 @@ export default function Sesion() {
     setEstadoEdicion(ejercicio && ejercicio.series.length === 0 ? 'nueva' : null);
   }
 
+  function alGuardar(agregarARutina: string[]) {
+    guardar.mutate(
+      { borrador: borrador!, agregarARutina },
+      {
+        onSuccess: (guardado) => {
+          // El borrador se borra SOLO acá, después de que el POST salió bien:
+          // si se borrara antes y el guardado fallara, el entrenamiento
+          // entero se perdería sin forma de recuperarlo.
+          descartar();
+          router.replace('/(tabs)/gym');
+          if (guardado.omitidos.length > 0) {
+            Alert.alert(
+              'Guardado con avisos',
+              `${guardado.omitidos.length} ejercicio(s) ya no están en el catálogo y quedaron fuera.`,
+            );
+          }
+        },
+      },
+    );
+  }
+
   if (paso === 'resumen' || !ejercicio) {
-    // El resumen de cierre lo arma la próxima tarea (ResumenSesion); acá solo
-    // existe el estado que lo dispara. Texto fijo, no un spinner: un
-    // ActivityIndicator que nunca termina de cargar se leería como pantalla
-    // trabada al probar esta tarea sola.
     return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <View style={styles.centrado}>
-          <Text style={styles.encabezadoTexto}>Resumen</Text>
-        </View>
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <ResumenSesion
+          borrador={borrador}
+          guardando={guardar.isPending}
+          error={guardar.isError ? (guardar.error as Error).message : null}
+          onGuardar={alGuardar}
+          onDescartar={descartar}
+        />
       </SafeAreaView>
     );
   }
@@ -183,6 +207,10 @@ export default function Sesion() {
       );
       return;
     }
+    // El borrador queda marcado como terminado antes de mostrar el resumen:
+    // es lo que le permite a la barra de Gym (Tarea 14) distinguir «en
+    // curso» de «sin guardar» sin depender de este estado en memoria.
+    actualizar({ ...borrador!, terminadoEn: new Date().toISOString() });
     setPaso('resumen');
   }
 
