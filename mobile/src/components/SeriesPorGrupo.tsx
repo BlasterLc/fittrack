@@ -15,13 +15,13 @@ const GRUPOS = [
   'Pantorrillas',
 ] as const;
 
-// Cardio y Cuello se cuentan pero van sin banda: un rango objetivo de 10 a 20
-// series no significa nada para ninguno de los dos.
+// Cardio, Cuello y «Sin clasificar» se cuentan pero van sin banda: un rango
+// objetivo de 10 a 20 series no significa nada para ninguno de los tres.
 const SIN_BANDA = ['Cardio', 'Cuello', 'Sin clasificar'];
 
 const OBJETIVO_MIN = 10;
 const OBJETIVO_MAX = 20;
-const ESCALA = 25; // el ancho completo de la pista
+const ESCALA = OBJETIVO_MAX + 5; // margen sobre el objetivo, el ancho completo de la pista
 
 export function SeriesPorGrupo({ grupos }: { grupos: SeriesDeGrupo[] }) {
   const porGrupo = new Map(grupos.map((g) => [g.grupo, g.series]));
@@ -74,7 +74,9 @@ export function SeriesPorGrupo({ grupos }: { grupos: SeriesDeGrupo[] }) {
           bloque entero saldría ámbar cada lunes y se iría apagando. El ámbar en
           este proyecto es solo semántico, y un lunes en cero no necesita
           atención. La banda sola comunica el avance. */}
-      <Text style={styles.pie}>La banda marca el rango objetivo, de 10 a 20 series.</Text>
+      <Text style={styles.pie}>
+        La banda marca el rango objetivo, de {OBJETIVO_MIN} a {OBJETIVO_MAX} series.
+      </Text>
     </View>
   );
 }
