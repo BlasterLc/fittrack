@@ -11,6 +11,7 @@ import { useGuardarEntrenamiento } from '@/hooks/useEntrenamientos';
 import { apiGet } from '@/lib/api';
 import { tomarSeleccion } from '@/lib/seleccionEjercicios';
 import {
+  esDeHoy,
   finDelBorrador,
   totalSeriesHechas,
   valorInicial,
@@ -133,6 +134,14 @@ export default function Sesion() {
     );
   }
 
+  // Deshace el «Terminar»: limpia la marca de cierre y devuelve al ejercicio
+  // donde ibas, que sigue en `indiceActual`. No se pierde nada, porque lo único
+  // que «Terminar» cambia del borrador es `terminadoEn`.
+  function seguirEntrenando() {
+    actualizar({ ...borrador!, terminadoEn: null });
+    setPaso('entrenando');
+  }
+
   // `terminadoEn` puesto significa que el entrenamiento ya se cerró y solo
   // falta guardarlo. Se deriva del borrador en vez de sembrar `paso` con un
   // efecto: si no, retomar desde la barra de Gym un entrenamiento que quedó
@@ -146,6 +155,12 @@ export default function Sesion() {
           error={guardar.isError ? (guardar.error as Error).message : null}
           onGuardar={alGuardar}
           onDescartar={descartar}
+          // Un borrador de otro día NO se puede seguir: sus marcas de tiempo ya
+          // no tienen sentido y volver a entrenar guardaría un entrenamiento de
+          // 72 horas. Es la misma regla que aplica la barra de Gym, que a uno
+          // varado solo le ofrece guardar lo hecho o descartarlo. Sin ejercicio
+          // tampoco hay a dónde volver: la rutina quedó vacía.
+          onSeguir={esDeHoy(borrador.iniciadoEn) && ejercicio ? seguirEntrenando : undefined}
         />
       </SafeAreaView>
     );

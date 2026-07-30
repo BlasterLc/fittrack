@@ -27,6 +27,11 @@ function desgloseSeries(series: SerieBorrador[]): string {
  * nada por sí solo, reporta hacia arriba con `onGuardar` (los `catalogId`
  * elegidos para sumar) y `onDescartar`.
  *
+ * `onSeguir` es la vuelta atrás, y es opcional porque no siempre existe: la
+ * pantalla decide si esta sesión todavía se puede retomar. Con ella, «Terminar»
+ * deja de ser un camino de ida y no necesita un diálogo que confirme: tocarlo
+ * sin querer se deshace con un toque, y terminar de verdad no paga nada.
+ *
  * Sin kilos totales: sumar kilos entre ejercicios distintos (una sentadilla y
  * un curl de bíceps) no significa nada físico. Es una decisión ya cerrada del
  * proyecto, no un olvido.
@@ -37,12 +42,14 @@ export function ResumenSesion({
   error,
   onGuardar,
   onDescartar,
+  onSeguir,
 }: {
   borrador: BorradorSesion;
   guardando: boolean;
   error: string | null;
   onGuardar: (agregarARutina: string[]) => void;
   onDescartar: () => void;
+  onSeguir?: () => void;
 }) {
   // 'no' por defecto: sumar un ejercicio a la rutina cambia algo que el
   // usuario va a ver la próxima vez que la abra, así que necesita una
@@ -79,6 +86,14 @@ export function ResumenSesion({
 
   return (
     <>
+      {/* Fuera del ScrollView: la salida no puede depender de dónde quedó el
+          scroll de un resumen largo. */}
+      {onSeguir && (
+        <Pressable style={styles.volver} onPress={onSeguir} accessibilityRole="button">
+          <Text style={styles.volverTexto}>‹ Seguir entrenando</Text>
+        </Pressable>
+      )}
+
       <ScrollView contentContainerStyle={styles.cuerpo}>
         <Text style={styles.titulo}>{borrador.nombreRutina}</Text>
 
@@ -146,6 +161,16 @@ function Cifra({ valor, etiqueta }: { valor: number; etiqueta: string }) {
 }
 
 const styles = StyleSheet.create({
+  // `alignSelf` para que el táctil no se coma todo el ancho de la pantalla, y
+  // los 48dp en el Pressable mismo, con alto real. El padding lateral es el de
+  // `cuerpo`, así el texto queda a plomo con el nombre de la rutina.
+  volver: {
+    minHeight: 48,
+    alignSelf: 'flex-start',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  volverTexto: { color: colors.sesionInk, fontFamily: fonts.medium, fontSize: fontSize.base },
   cuerpo: { padding: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.lg },
   titulo: { color: colors.sesionInk, fontFamily: fonts.bold, fontSize: fontSize.xl },
   cifras: {
