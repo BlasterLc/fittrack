@@ -21,14 +21,30 @@ router = APIRouter(
 
 @router.get("/dashboard", response_model=ResumenDia)
 def resumen_del_dia(
+    desde: datetime | None = None,
+    hasta: datetime | None = None,
     user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> ResumenDia:
-    """Resumen del día del usuario. Suma las comidas de hoy y el entrenamiento
-    de hoy; peso sigue en null hasta su fase."""
-    ahora = datetime.now(timezone.utc)
-    inicio = ahora.replace(hour=0, minute=0, second=0, microsecond=0)
-    fin = inicio + timedelta(days=1)
+    """Resumen del día del usuario: comidas y entrenamiento de la ventana pedida.
+
+    La ventana la manda el teléfono, igual que en `/api/food`, porque el día
+    del usuario empieza a su medianoche y no a la de UTC. Cortando en UTC,
+    alguien en Chile (-04) veía todo lo hecho después de las 20:00 contado
+    para el día siguiente, y en desacuerdo con el historial de comidas, que
+    siempre agrupó por día local.
+
+    Ambos parámetros son opcionales y por separado se ignoran: hace falta el
+    par para definir una ventana. Sin ellos se cae al día UTC, que es lo que
+    hacía antes, para que una versión vieja de la app siga funcionando
+    mientras se actualiza.
+    """
+    if desde is not None and hasta is not None:
+        inicio, fin = desde, hasta
+    else:
+        ahora = datetime.now(timezone.utc)
+        inicio = ahora.replace(hour=0, minute=0, second=0, microsecond=0)
+        fin = inicio + timedelta(days=1)
 
     filas = db.execute(
         select(MealItem.calorias, MealItem.prot_g, MealItem.carbs_g, MealItem.fat_g)

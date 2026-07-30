@@ -190,3 +190,97 @@ def test_el_dashboard_suma_dos_entrenamientos_del_mismo_dia(client, db_session, 
 
     assert cuerpo["entrenamiento"]["series"] == 2
     assert cuerpo["entrenamiento"]["duracion_min"] == 60
+
+
+def test_el_dashboard_respeta_la_ventana_local_que_manda_el_telefono(
+    client, db_session, auth_headers
+):
+    """El día lo recorta el teléfono, no el servidor.
+
+    Sin esto el corte era medianoche UTC, y para alguien en Chile (-04) todo
+    lo hecho después de las 20:00 contaba para el día siguiente: entrenabas el
+    miércoles a las 21:00 y la pantalla Hoy te mostraba cero. Peor, el
+    historial de comidas ya agrupaba por día local, así que las dos pantallas
+    se contradecían sobre los mismos datos.
+    """
+    import datetime as dt
+
+    from tests.test_entrenamientos import sembrar_catalogo
+
+    sembrar_catalogo(db_session)
+    yo = "11111111-1111-1111-1111-111111111111"
+
+    # Fechas lejos de hoy a propósito: si cayeran en el día UTC actual, el
+    # comportamiento viejo daría lo mismo que el nuevo y el test pasaría sin
+    # probar nada.
+    # Jueves 15/01 a las 21:16 en Chile (-03 en verano) = viernes 16/01 00:16 UTC.
+    _crear_entrenamiento_en(
+        db_session, yo, "jueves-noche", dt.datetime(2026, 1, 16, 0, 16, tzinfo=dt.timezone.utc)
+    )
+
+    # La ventana del jueves chileno: 03:00 UTC del jueves a 03:00 UTC del
+    # viernes. La zona va como «Z» y no como «+00:00» a propósito: un «+» sin
+    # codificar en una query string se lee como espacio y el request da 422.
+    cuerpo = client.get(
+        "/api/dashboard?desde=2026-01-15T03:00:00Z&hasta=2026-01-16T03:00:00Z",
+        headers=auth_headers,
+    ).json()
+
+    assert cuerpo["entrenamiento"] is not None, "el entrenamiento del jueves por la noche tiene que contar para el jueves"
+    assert cuerpo["entrenamiento"]["series"] == 1
+
+    # Y en la ventana del viernes chileno ya no aparece.
+    siguiente = client.get(
+        "/api/dashboard?desde=2026-01-16T03:00:00Z&hasta=2026-01-17T03:00:00Z",
+        headers=auth_headers,
+    ).json()
+    assert siguiente["entrenamiento"] is None
+
+
+def test_las_comidas_usan_la_misma_ventana_que_el_entrenamiento(
+    client, db_session, auth_headers
+):
+    """Las dos mitades del dashboard tienen que cortar el día igual."""
+    import datetime as dt
+
+    from api.models import Meal, MealItem
+
+    yo = "11111111-1111-1111-1111-111111111111"
+    # Misma idea que el test de arriba: fecha lejos de hoy, o el día UTC
+    # actual la incluiría igual y el test no distinguiría nada.
+    comida = Meal(user_id=yo, logged_at=dt.datetime(2026, 1, 16, 0, 30, tzinfo=dt.timezone.utc))
+    comida.items = [
+        MealItem(nombre="Cena", calorias=700, prot_g=40, carbs_g=60, fat_g=25)
+    ]
+    db_session.add(comida)
+    db_session.commit()
+
+    cuerpo = client.get(
+        "/api/dashboard?desde=2026-01-15T03:00:00Z&hasta=2026-01-16T03:00:00Z",
+        headers=auth_headers,
+    ).json()
+
+    assert cuerpo["calorias"]["consumidas"] == 700
+
+
+def _crear_entrenamiento_en(db_session, user_id, client_id, empezado):
+    import datetime as dt
+
+    from api.models import Workout, WorkoutExercise, WorkoutSet
+
+    w = Workout(
+        user_id=user_id,
+        client_id=client_id,
+        started_at=empezado,
+        ended_at=empezado + dt.timedelta(minutes=48),
+    )
+    w.ejercicios = [
+        WorkoutExercise(
+            catalog_id="0025",
+            orden=0,
+            series=[WorkoutSet(orden=0, reps=8, weight_kg=80.0, completed_at=empezado)],
+        )
+    ]
+    db_session.add(w)
+    db_session.commit()
+    return w
