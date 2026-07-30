@@ -114,10 +114,10 @@ export function HistorialEntrenamientos({
     return (
       <View style={styles.bloque}>
         <Text style={styles.titulo}>Historial</Text>
-        {/* Enseña qué va a aparecer, en vez de un «nada por aquí»: acá el vacío
+        {/* Enseña qué va a aparecer, en vez de un «nada por aquí»: aquí el vacío
             es el estado normal durante las primeras semanas. */}
         <Text style={styles.vacio}>
-          Cuando termines un entrenamiento va a quedar acá, agrupado por mes. Puedes abrir
+          Cuando termines un entrenamiento va a quedar aquí, agrupado por mes. Puedes abrir
           cualquiera para ver los kilos y las repeticiones de cada serie.
         </Text>
       </View>
