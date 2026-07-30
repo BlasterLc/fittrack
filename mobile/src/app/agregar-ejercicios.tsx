@@ -6,6 +6,21 @@ import { CatalogoLista } from '@/components/CatalogoLista';
 import { dejarSeleccion } from '@/lib/seleccionEjercicios';
 import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
 
+/**
+ * El selector del catálogo, compartido por el editor de rutinas y la sesión.
+ *
+ * Vive en la raíz y NO dentro de `(tabs)` a propósito. Como ruta de las
+ * pestañas, empujarla desde `/sesion` —que es hermana de raíz— montaba un
+ * `(tabs)` entero encima, con su barra: desde ahí tocar «Gym» enterraba la
+ * sesión en el stack, y retomarla desde la barra de Gym montaba un SEGUNDO
+ * `Sesion`. Los dos leían el mismo borrador pero cada uno con su estado en
+ * memoria, así que las series del que quedaba abajo se perdían con un resumen
+ * de éxito, porque el `client_id` repetido dispara la idempotencia del backend.
+ *
+ * En la raíz se empuja sobre el stack de arriba en los dos flujos: el editor
+ * de rutinas sigue montado debajo, el `back()` vuelve exactamente a donde
+ * estabas, y desde la sesión no hay barra de pestañas por donde escaparse.
+ */
 export default function AgregarEjercicios() {
   const router = useRouter();
   // Los que ya están en la rutina llegan marcados, así se pueden sacar desde
@@ -22,7 +37,10 @@ export default function AgregarEjercicios() {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    // 'bottom' se suma al salir de las pestañas: antes el pie quedaba por
+    // encima de la barra de pestañas, que ya reservaba ese espacio; en la raíz
+    // no hay nada debajo y «Agregar» caería sobre los gestos del sistema.
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.barra}>
         <Pressable onPress={() => router.back()} hitSlop={12}>
           <Text style={styles.cancelar}>Cancelar</Text>

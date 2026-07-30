@@ -199,7 +199,7 @@ export default function EditorRutina() {
           style={styles.agregar}
           onPress={() =>
             router.push({
-              pathname: '/gym/rutina/agregar',
+              pathname: '/agregar-ejercicios',
               params: { ya: lista.map((e) => e.id).join(',') },
             })
           }

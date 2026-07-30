@@ -216,7 +216,7 @@ export default function Sesion() {
         ejercicios={borrador.ejercicios}
         indiceActual={indiceActual}
         onSeleccionar={(i) => actualizar({ ...borrador, indiceActual: i })}
-        onAgregar={() => router.push('/gym/rutina/agregar')}
+        onAgregar={() => router.push('/agregar-ejercicios')}
       />
 
       <ScrollView
