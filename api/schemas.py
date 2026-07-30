@@ -265,3 +265,14 @@ class EntrenamientoGuardado(BaseModel):
     # catalog_id que ya no existen en el catálogo. Se guarda el resto y la app
     # avisa cuáles quedaron fuera, en vez de perder el entrenamiento entero.
     omitidos: list[str]
+
+
+class DiaEntrenado(BaseModel):
+    """Un entrenamiento del mapa de asistencia.
+
+    NO es un día: es un entrenamiento. Agrupar dos del mismo día en una casilla
+    lo hace el cliente, que es el único que sabe en qué huso vive el usuario.
+    """
+
+    started_at: datetime
+    minutos: int
