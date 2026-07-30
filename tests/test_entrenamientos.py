@@ -204,17 +204,20 @@ def _entrenamiento(sesion, user_id, client_id, empezado):
     return w
 
 
-def _crear_entrenamiento_con_series(sesion, user_id, inicio, minutos, catalog_id="0025", series=1):
+def _crear_entrenamiento_con_series(
+    sesion, user_id, inicio, minutos, catalog_id="0025", series=1, routine_id=None
+):
     """Un entrenamiento con un ejercicio y N series, en el momento dado.
 
-    A diferencia de `_entrenamiento`, deja elegir el catalog_id y la cantidad
-    de series: lo que necesita el historial y sus pruebas de un ejercicio
-    borrado del catálogo o de varias series por ejercicio.
+    A diferencia de `_entrenamiento`, deja elegir el catalog_id, la cantidad
+    de series y la rutina: lo que necesita el historial y sus pruebas de un
+    ejercicio borrado del catálogo, de varias series por ejercicio o de un
+    entrenamiento enlazado a una rutina real.
     """
     entrenamiento = Workout(
         user_id=user_id,
         client_id=str(uuid.uuid4()),
-        routine_id=None,
+        routine_id=routine_id,
         started_at=inicio,
         ended_at=inicio + dt.timedelta(minutes=minutos),
     )
@@ -793,3 +796,32 @@ def test_historial_vacio_devuelve_lista_vacia_y_200(client, auth_headers):
 def test_historial_topa_el_limite_en_100(client, auth_headers):
     respuesta = client.get("/api/workouts", params={"limite": 500}, headers=auth_headers)
     assert respuesta.status_code == 422
+
+
+def test_historial_trae_el_nombre_de_la_rutina_real(client, auth_headers, db_session):
+    sembrar_catalogo(db_session, ids=("0001",))
+    rutina = sembrar_rutina(db_session, catalog_ids=("0001",))
+    _crear_entrenamiento_con_series(
+        db_session, USUARIO, BASE_HISTORIAL, minutos=48, catalog_id="0001", routine_id=rutina.id
+    )
+
+    cuerpo_respuesta = client.get("/api/workouts", headers=auth_headers).json()
+
+    assert cuerpo_respuesta[0]["nombre_rutina"] == rutina.nombre
+
+
+def test_historial_trae_el_nombre_de_una_rutina_archivada(client, auth_headers, db_session):
+    """Se archiva en vez de borrar justo para no dejar huérfano el historial que
+    la referencia: un entrenamiento viejo con rutina archivada es un caso real
+    de producción, y el nombre tiene que seguir resolviendo igual."""
+    sembrar_catalogo(db_session, ids=("0001",))
+    rutina = sembrar_rutina(db_session, catalog_ids=("0001",))
+    rutina.archived_at = BASE_HISTORIAL
+    db_session.commit()
+    _crear_entrenamiento_con_series(
+        db_session, USUARIO, BASE_HISTORIAL, minutos=48, catalog_id="0001", routine_id=rutina.id
+    )
+
+    cuerpo_respuesta = client.get("/api/workouts", headers=auth_headers).json()
+
+    assert cuerpo_respuesta[0]["nombre_rutina"] == rutina.nombre
