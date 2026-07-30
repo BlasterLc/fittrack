@@ -267,6 +267,22 @@ class EntrenamientoGuardado(BaseModel):
     omitidos: list[str]
 
 
+class EjercicioDeHistorial(BaseModel):
+    catalog_id: str
+    nombre_es: str
+    series: list[SerieGuardada]
+
+
+class EntrenamientoDeHistorial(BaseModel):
+    id: int
+    nombre_rutina: str | None
+    started_at: datetime
+    duracion_min: int
+    total_series: int
+    total_ejercicios: int
+    ejercicios: list[EjercicioDeHistorial]
+
+
 class DiaEntrenado(BaseModel):
     """Un entrenamiento del mapa de asistencia.
 

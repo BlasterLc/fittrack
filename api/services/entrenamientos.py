@@ -4,7 +4,7 @@ from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from api.models import (
     CatalogExercise,
@@ -250,3 +250,86 @@ def guardar(sesion: Session, user_id: str, datos: dict) -> dict:
 
     sesion.refresh(entrenamiento)
     return _resumen(sesion, entrenamiento, omitidos)
+
+
+# Lo que se muestra cuando la ingesta borró la ficha del ejercicio. Distinto de
+# `_resumen`, que muestra el catalog_id crudo: ahí es el eco inmediato de algo
+# que se acaba de guardar, acá es una lista que se lee meses después, y un
+# "0025" no le dice nada a nadie.
+NOMBRE_BORRADO = "Ejercicio no disponible"
+
+LIMITE_MAXIMO = 100
+
+
+def historial(
+    sesion: Session, user_id: str, hasta: datetime | None, limite: int
+) -> list[dict]:
+    """Los `limite` entrenamientos anteriores a `hasta`, del más nuevo al más viejo.
+
+    Pagina por CANTIDAD y no por mes: pidiendo mes a mes, un usuario con un solo
+    entrenamiento dispararía una request por cada mes vacío hacia atrás antes de
+    encontrar algo. Los encabezados por mes los arma el cliente, que es el único
+    que sabe en qué huso cae cada entrenamiento.
+    """
+    condiciones = [Workout.user_id == user_id]
+    if hasta is not None:
+        condiciones.append(Workout.started_at < hasta)
+
+    entrenamientos = list(
+        sesion.execute(
+            select(Workout)
+            .where(*condiciones)
+            .order_by(Workout.started_at.desc())
+            .limit(limite)
+            # Sin esto son N+1 consultas: una por entrenamiento para sus
+            # ejercicios y otra por ejercicio para sus series.
+            .options(
+                selectinload(Workout.ejercicios).selectinload(WorkoutExercise.series)
+            )
+        ).scalars()
+    )
+    if not entrenamientos:
+        return []
+
+    ids_catalogo = {e.catalog_id for w in entrenamientos for e in w.ejercicios}
+    nombres = dict(
+        sesion.execute(
+            select(CatalogExercise.id, CatalogExercise.nombre_es).where(
+                CatalogExercise.id.in_(ids_catalogo)
+            )
+        ).all()
+    )
+
+    ids_rutina = {w.routine_id for w in entrenamientos if w.routine_id is not None}
+    rutinas = (
+        dict(
+            sesion.execute(
+                select(Routine.id, Routine.nombre).where(Routine.id.in_(ids_rutina))
+            ).all()
+        )
+        if ids_rutina
+        else {}
+    )
+
+    return [
+        {
+            "id": w.id,
+            "nombre_rutina": rutinas.get(w.routine_id),
+            "started_at": w.started_at,
+            "duracion_min": int((w.ended_at - w.started_at).total_seconds() // 60),
+            "total_series": sum(len(e.series) for e in w.ejercicios),
+            "total_ejercicios": len(w.ejercicios),
+            "ejercicios": [
+                {
+                    "catalog_id": e.catalog_id,
+                    "nombre_es": nombres.get(e.catalog_id, NOMBRE_BORRADO),
+                    "series": [
+                        {"orden": s.orden, "reps": s.reps, "weight_kg": s.weight_kg}
+                        for s in e.series
+                    ],
+                }
+                for e in w.ejercicios
+            ],
+        }
+        for w in entrenamientos
+    ]

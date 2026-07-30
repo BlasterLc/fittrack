@@ -1,4 +1,5 @@
 import datetime as dt
+import uuid
 
 import psycopg
 import pytest
@@ -13,6 +14,10 @@ OTRO = "22222222-2222-2222-2222-222222222222"
 
 INICIO = dt.datetime(2026, 7, 28, 22, 40, tzinfo=dt.timezone.utc)
 FIN = dt.datetime(2026, 7, 28, 23, 32, tzinfo=dt.timezone.utc)
+
+# Lejos de now() a propósito: con fechas de hoy, una prueba de ventanas pasa
+# por casualidad de calendario, con y sin el arreglo.
+BASE_HISTORIAL = dt.datetime(2025, 3, 10, 15, 0, tzinfo=dt.timezone.utc)
 
 
 def sembrar_catalogo(sesion, ids=("0025", "0031")):
@@ -197,6 +202,35 @@ def _entrenamiento(sesion, user_id, client_id, empezado):
     sesion.add(w)
     sesion.commit()
     return w
+
+
+def _crear_entrenamiento_con_series(sesion, user_id, inicio, minutos, catalog_id="0025", series=1):
+    """Un entrenamiento con un ejercicio y N series, en el momento dado.
+
+    A diferencia de `_entrenamiento`, deja elegir el catalog_id y la cantidad
+    de series: lo que necesita el historial y sus pruebas de un ejercicio
+    borrado del catálogo o de varias series por ejercicio.
+    """
+    entrenamiento = Workout(
+        user_id=user_id,
+        client_id=str(uuid.uuid4()),
+        routine_id=None,
+        started_at=inicio,
+        ended_at=inicio + dt.timedelta(minutes=minutos),
+    )
+    entrenamiento.ejercicios = [
+        WorkoutExercise(
+            catalog_id=catalog_id,
+            orden=0,
+            series=[
+                WorkoutSet(orden=j, reps=10, weight_kg=40, completed_at=inicio)
+                for j in range(series)
+            ],
+        )
+    ]
+    sesion.add(entrenamiento)
+    sesion.commit()
+    return entrenamiento
 
 
 def test_el_mismo_client_id_no_crea_dos_entrenamientos(db_session):
@@ -653,3 +687,109 @@ def test_post_con_rutina_inexistente_da_422_con_detalle(client, db_session, auth
 
     assert r.status_code == 422
     assert r.json()["detail"] == "La rutina del entrenamiento no existe o no te pertenece"
+
+
+def test_historial_sin_token_devuelve_401(client):
+    respuesta = client.get("/api/workouts")
+    assert respuesta.status_code == 401
+
+
+def test_historial_devuelve_del_mas_nuevo_al_mas_viejo(client, auth_headers, db_session):
+    sembrar_catalogo(db_session, ids=("0001",))
+    _crear_entrenamiento_con_series(
+        db_session, USUARIO, BASE_HISTORIAL - dt.timedelta(days=5), minutos=30, catalog_id="0001"
+    )
+    _crear_entrenamiento_con_series(
+        db_session, USUARIO, BASE_HISTORIAL, minutos=48, catalog_id="0001"
+    )
+
+    cuerpo_respuesta = client.get("/api/workouts", headers=auth_headers).json()
+
+    assert [e["duracion_min"] for e in cuerpo_respuesta] == [48, 30]
+
+
+def test_historial_respeta_el_limite(client, auth_headers, db_session):
+    sembrar_catalogo(db_session, ids=("0001",))
+    for dias in range(5):
+        _crear_entrenamiento_con_series(
+            db_session, USUARIO, BASE_HISTORIAL - dt.timedelta(days=dias), minutos=30, catalog_id="0001"
+        )
+
+    cuerpo_respuesta = client.get(
+        "/api/workouts", params={"limite": 2}, headers=auth_headers
+    ).json()
+
+    assert len(cuerpo_respuesta) == 2
+
+
+def test_historial_pagina_hacia_atras_con_hasta(client, auth_headers, db_session):
+    """La paginación va por cantidad, no por mes: un usuario nuevo con un solo
+    entrenamiento no puede disparar una request por cada mes vacío hacia atrás.
+    """
+    sembrar_catalogo(db_session, ids=("0001",))
+    for dias in range(5):
+        _crear_entrenamiento_con_series(
+            db_session, USUARIO, BASE_HISTORIAL - dt.timedelta(days=dias), minutos=30, catalog_id="0001"
+        )
+
+    primera = client.get(
+        "/api/workouts", params={"limite": 2}, headers=auth_headers
+    ).json()
+    segunda = client.get(
+        "/api/workouts",
+        params={"limite": 2, "hasta": primera[-1]["started_at"]},
+        headers=auth_headers,
+    ).json()
+
+    assert len(segunda) == 2
+    ids_primera = {e["id"] for e in primera}
+    assert all(e["id"] not in ids_primera for e in segunda)
+
+
+def test_historial_trae_los_ejercicios_con_sus_series(client, auth_headers, db_session):
+    sembrar_catalogo(db_session, ids=("0001",))
+    _crear_entrenamiento_con_series(
+        db_session, USUARIO, BASE_HISTORIAL, minutos=48, catalog_id="0001", series=3
+    )
+
+    cuerpo_respuesta = client.get("/api/workouts", headers=auth_headers).json()
+
+    assert cuerpo_respuesta[0]["total_series"] == 3
+    assert cuerpo_respuesta[0]["ejercicios"][0]["nombre_es"] == "Ejercicio 0"
+    assert len(cuerpo_respuesta[0]["ejercicios"][0]["series"]) == 3
+    assert cuerpo_respuesta[0]["ejercicios"][0]["series"][0]["reps"] == 10
+
+
+def test_historial_de_un_ejercicio_borrado_del_catalogo_no_rompe(
+    client, auth_headers, db_session
+):
+    _crear_entrenamiento_con_series(
+        db_session, USUARIO, BASE_HISTORIAL, minutos=48, catalog_id="9999", series=2
+    )
+
+    cuerpo_respuesta = client.get("/api/workouts", headers=auth_headers).json()
+
+    assert cuerpo_respuesta[0]["ejercicios"][0]["nombre_es"] == "Ejercicio no disponible"
+    assert len(cuerpo_respuesta[0]["ejercicios"][0]["series"]) == 2
+
+
+def test_historial_ignora_a_otros_usuarios(client, auth_headers, db_session):
+    sembrar_catalogo(db_session, ids=("0001",))
+    _crear_entrenamiento_con_series(db_session, USUARIO, BASE_HISTORIAL, minutos=48, catalog_id="0001")
+    _crear_entrenamiento_con_series(db_session, OTRO, BASE_HISTORIAL, minutos=99, catalog_id="0001")
+
+    cuerpo_respuesta = client.get("/api/workouts", headers=auth_headers).json()
+
+    assert len(cuerpo_respuesta) == 1
+    assert cuerpo_respuesta[0]["duracion_min"] == 48
+
+
+def test_historial_vacio_devuelve_lista_vacia_y_200(client, auth_headers):
+    respuesta = client.get("/api/workouts", headers=auth_headers)
+    assert respuesta.status_code == 200
+    assert respuesta.json() == []
+
+
+def test_historial_topa_el_limite_en_100(client, auth_headers):
+    respuesta = client.get("/api/workouts", params={"limite": 500}, headers=auth_headers)
+    assert respuesta.status_code == 422
