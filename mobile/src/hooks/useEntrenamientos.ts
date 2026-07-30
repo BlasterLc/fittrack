@@ -44,10 +44,14 @@ function aCuerpo(borrador: BorradorSesion, agregarARutina: string[]) {
  * Guarda el entrenamiento en el backend.
  *
  * Invalida `['dashboard']` porque Hoy incluye el entrenamiento del día
- * (Tarea 6), e invalida `['rutinas']` porque guardar reescribe los
+ * (Tarea 6), invalida `['rutinas']` porque guardar reescribe los
  * `*_default` de la rutina (Tarea 4): sin esto, volver al detalle de la
  * rutina mostraría los defaults viejos. El prefijo `['rutinas']` alcanza
- * para la lista y el detalle, igual que en `useRutinas.ts`.
+ * para la lista y el detalle, igual que en `useRutinas.ts`. Invalida
+ * `['progreso']` porque el mapa, las series por grupo y el historial
+ * (Fase 7a) también cambian con cada entrenamiento nuevo: sin esto, la
+ * pestaña Progreso ya montada seguiría mostrando datos de antes de guardar
+ * hasta un pull-to-refresh manual.
  */
 export function useGuardarEntrenamiento() {
   const cliente = useQueryClient();
@@ -57,6 +61,7 @@ export function useGuardarEntrenamiento() {
     onSuccess: () => {
       cliente.invalidateQueries({ queryKey: ['dashboard'] });
       cliente.invalidateQueries({ queryKey: ['rutinas'] });
+      cliente.invalidateQueries({ queryKey: ['progreso'] });
     },
   });
 }
