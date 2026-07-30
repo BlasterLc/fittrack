@@ -10,10 +10,10 @@ huso del usuario.
 
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from api.models import Workout
+from api.models import CatalogExercise, Workout, WorkoutExercise, WorkoutSet
 
 
 class VentanaInvalida(ValueError):
@@ -47,4 +47,49 @@ def mapa(sesion: Session, user_id: str, desde: datetime, hasta: datetime) -> lis
             "minutos": int((fin - inicio).total_seconds() // 60),
         }
         for inicio, fin in filas
+    ]
+
+
+# Las series cuyo ejercicio ya no está en el catálogo. Se muestran en vez de
+# desaparecer: un número que se lee como un hecho no puede venir corto en
+# silencio.
+SIN_CLASIFICAR = "Sin clasificar"
+
+
+def series_por_grupo(
+    sesion: Session, user_id: str, desde: datetime, hasta: datetime
+) -> list[dict]:
+    """Series por grupo muscular primario en la ventana.
+
+    Cuenta SOLO `body_part_es`, el primario. Los secundarios usan otro
+    vocabulario ("Bíceps", "Flexores de cadera") que no coincide con los diez
+    grupos, así que sumarlos exigiría una tabla de mapeo escrita a mano y
+    acreditaría grupos que no se entrenaron.
+
+    El recorte va por el `started_at` del ENTRENAMIENTO, no por el
+    `completed_at` de cada serie: una sesión pertenece a la semana en que
+    empezó, igual que en el mapa.
+
+    `outerjoin` contra el catálogo a propósito: no hay FK y la ingesta borra lo
+    que ya no está en el dataset.
+    """
+    _validar(desde, hasta)
+
+    filas = sesion.execute(
+        select(CatalogExercise.body_part_es, func.count(WorkoutSet.id))
+        .select_from(WorkoutSet)
+        .join(WorkoutExercise, WorkoutSet.workout_exercise_id == WorkoutExercise.id)
+        .join(Workout, WorkoutExercise.workout_id == Workout.id)
+        .outerjoin(CatalogExercise, CatalogExercise.id == WorkoutExercise.catalog_id)
+        .where(
+            Workout.user_id == user_id,
+            Workout.started_at >= desde,
+            Workout.started_at < hasta,
+        )
+        .group_by(CatalogExercise.body_part_es)
+    ).all()
+
+    return [
+        {"grupo": grupo if grupo is not None else SIN_CLASIFICAR, "series": series}
+        for grupo, series in filas
     ]

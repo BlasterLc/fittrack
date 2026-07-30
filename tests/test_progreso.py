@@ -1,7 +1,7 @@
 import datetime as dt
 import uuid
 
-from api.models import Workout, WorkoutExercise, WorkoutSet
+from api.models import CatalogExercise, Workout, WorkoutExercise, WorkoutSet
 
 YO = "11111111-1111-1111-1111-111111111111"
 
@@ -191,6 +191,212 @@ def test_heatmap_ventana_de_un_instante_no_es_invalida(client, auth_headers):
         headers=auth_headers,
     )
     assert respuesta.status_code == 200
+
+
+def _crear_ficha(db_session, catalog_id, grupo):
+    db_session.add(
+        CatalogExercise(
+            id=catalog_id,
+            nombre_en="X",
+            nombre_es="Equis",
+            nombre_norm="equis",
+            body_part="chest",
+            body_part_es=grupo,
+            equipment="barbell",
+            equipment_es="Barra",
+            target="pectorals",
+            target_es="Pectorales",
+            secondary_muscles=[],
+            secondary_muscles_es=[],
+            instrucciones_es=[],
+            gif_path="http://ejemplo/x.gif",
+            atribucion="dataset",
+        )
+    )
+    db_session.commit()
+
+
+def _ventana_ancha():
+    return {
+        "desde": (BASE - dt.timedelta(days=7)).isoformat(),
+        "hasta": (BASE + dt.timedelta(days=1)).isoformat(),
+    }
+
+
+def test_series_por_grupo_sin_token_devuelve_401(client):
+    respuesta = client.get("/api/progress/sets-by-muscle")
+    assert respuesta.status_code == 401
+
+
+def test_series_por_grupo_cuenta_solo_el_musculo_primario(
+    client, auth_headers, db_session
+):
+    _crear_ficha(db_session, "0001", "Espalda")
+    _crear_entrenamiento(db_session, YO, BASE, minutos=48, catalog_id="0001", series=3)
+
+    cuerpo = client.get(
+        "/api/progress/sets-by-muscle", params=_ventana_ancha(), headers=auth_headers
+    ).json()
+
+    assert cuerpo == [{"grupo": "Espalda", "series": 3}]
+
+
+def test_series_por_grupo_suma_entre_entrenamientos_de_la_ventana(
+    client, auth_headers, db_session
+):
+    _crear_ficha(db_session, "0001", "Espalda")
+    _crear_entrenamiento(db_session, YO, BASE, minutos=48, catalog_id="0001", series=3)
+    _crear_entrenamiento(
+        db_session, YO, BASE - dt.timedelta(days=2), minutos=30, catalog_id="0001", series=2
+    )
+
+    cuerpo = client.get(
+        "/api/progress/sets-by-muscle", params=_ventana_ancha(), headers=auth_headers
+    ).json()
+
+    assert cuerpo == [{"grupo": "Espalda", "series": 5}]
+
+
+def test_series_de_un_ejercicio_borrado_del_catalogo_no_se_evaporan(
+    client, auth_headers, db_session
+):
+    """El catálogo es convergente: `ingestar()` borra lo que ya no está en el
+    dataset, y no hay FK que lo impida. Con un JOIN normal estas series
+    desaparecerían en silencio y las barras quedarían cortas sin avisar.
+    """
+    _crear_ficha(db_session, "0001", "Espalda")
+    _crear_entrenamiento(db_session, YO, BASE, minutos=48, catalog_id="0001", series=3)
+    _crear_entrenamiento(
+        db_session,
+        YO,
+        BASE + dt.timedelta(hours=1),
+        minutos=20,
+        catalog_id="9999",  # nunca estuvo en el catálogo
+        series=2,
+    )
+
+    cuerpo = client.get(
+        "/api/progress/sets-by-muscle", params=_ventana_ancha(), headers=auth_headers
+    ).json()
+
+    por_grupo = {f["grupo"]: f["series"] for f in cuerpo}
+    assert por_grupo == {"Espalda": 3, "Sin clasificar": 2}
+
+
+def test_series_por_grupo_ignora_a_otros_usuarios(client, auth_headers, db_session):
+    _crear_ficha(db_session, "0001", "Espalda")
+    _crear_entrenamiento(db_session, YO, BASE, minutos=48, catalog_id="0001", series=3)
+    _crear_entrenamiento(
+        db_session, "otro-usuario", BASE, minutos=48, catalog_id="0001", series=9
+    )
+
+    cuerpo = client.get(
+        "/api/progress/sets-by-muscle", params=_ventana_ancha(), headers=auth_headers
+    ).json()
+
+    assert cuerpo == [{"grupo": "Espalda", "series": 3}]
+
+
+def test_series_de_una_sesion_que_cruza_la_medianoche_cuentan_donde_empezo(
+    client, auth_headers, db_session
+):
+    """Una sesión pertenece a la semana en que empezó, no a la de cada serie.
+
+    Si el mapa usara `started_at` y las barras el `completed_at` de cada serie,
+    las dos mitades de la misma pantalla se contradirían sobre el mismo
+    entrenamiento.
+    """
+    _crear_ficha(db_session, "0001", "Espalda")
+    domingo_tarde = dt.datetime(2025, 3, 9, 23, 30, tzinfo=dt.timezone.utc)
+    _crear_entrenamiento(
+        db_session, YO, domingo_tarde, minutos=60, catalog_id="0001", series=4
+    )
+
+    # Ventana que termina ANTES de la medianoche: la sesión empezó adentro.
+    cuerpo = client.get(
+        "/api/progress/sets-by-muscle",
+        params={
+            "desde": (domingo_tarde - dt.timedelta(hours=1)).isoformat(),
+            "hasta": dt.datetime(2025, 3, 10, 0, 0, tzinfo=dt.timezone.utc).isoformat(),
+        },
+        headers=auth_headers,
+    ).json()
+
+    assert cuerpo == [{"grupo": "Espalda", "series": 4}]
+
+
+def test_series_por_grupo_ignora_cuando_se_completo_cada_serie(
+    client, auth_headers, db_session
+):
+    """Distingue `started_at` del entrenamiento de `completed_at` de la serie.
+
+    La prueba de la sesión que cruza la medianoche no alcanza para esto: ahí
+    el fixture pone `completed_at` igual al `started_at`, así que filtrar por
+    uno u otro da el mismo resultado. Aquí la serie se completa después de que
+    termina la ventana, mientras el entrenamiento empezó adentro.
+    """
+    _crear_ficha(db_session, "0001", "Espalda")
+    domingo_tarde = dt.datetime(2025, 3, 9, 23, 30, tzinfo=dt.timezone.utc)
+    medianoche = dt.datetime(2025, 3, 10, 0, 0, tzinfo=dt.timezone.utc)
+
+    entrenamiento = Workout(
+        user_id=YO,
+        client_id=str(uuid.uuid4()),
+        routine_id=None,
+        started_at=domingo_tarde,
+        ended_at=domingo_tarde + dt.timedelta(hours=1),
+    )
+    entrenamiento.ejercicios = [
+        WorkoutExercise(
+            catalog_id="0001",
+            orden=0,
+            series=[
+                # Se completa después del corte de la ventana, aunque el
+                # entrenamiento empezó adentro.
+                WorkoutSet(
+                    orden=0,
+                    reps=10,
+                    weight_kg=40,
+                    completed_at=medianoche + dt.timedelta(minutes=30),
+                )
+            ],
+        )
+    ]
+    db_session.add(entrenamiento)
+    db_session.commit()
+
+    # Ventana que termina ANTES de la medianoche: el entrenamiento empezó
+    # adentro, pero la serie se completó después de `hasta`.
+    cuerpo = client.get(
+        "/api/progress/sets-by-muscle",
+        params={
+            "desde": (domingo_tarde - dt.timedelta(hours=1)).isoformat(),
+            "hasta": medianoche.isoformat(),
+        },
+        headers=auth_headers,
+    ).json()
+
+    assert cuerpo == [{"grupo": "Espalda", "series": 1}]
+
+
+def test_series_por_grupo_ventana_vacia_devuelve_lista_vacia(client, auth_headers):
+    respuesta = client.get(
+        "/api/progress/sets-by-muscle", params=_ventana_ancha(), headers=auth_headers
+    )
+    assert respuesta.status_code == 200
+    assert respuesta.json() == []
+
+
+def test_series_por_grupo_rechaza_ventana_al_reves(client, auth_headers):
+    respuesta = client.get(
+        "/api/progress/sets-by-muscle",
+        params={
+            "desde": (BASE + dt.timedelta(days=1)).isoformat(),
+            "hasta": BASE.isoformat(),
+        },
+        headers=auth_headers,
+    )
+    assert respuesta.status_code == 422
 
 
 def test_heatmap_de_menos_de_un_minuto_devuelve_cero(client, auth_headers, db_session):

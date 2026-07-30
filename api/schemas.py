@@ -276,3 +276,14 @@ class DiaEntrenado(BaseModel):
 
     started_at: datetime
     minutos: int
+
+
+class SeriesDeGrupo(BaseModel):
+    """Series hechas en un grupo muscular durante la ventana.
+
+    Solo aparecen los grupos con series. Los que van en cero los dibuja el
+    cliente, que es quien decide el orden y cuáles se muestran.
+    """
+
+    grupo: str
+    series: int
