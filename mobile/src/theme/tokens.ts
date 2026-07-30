@@ -42,6 +42,14 @@ export const colors = {
   // 4,61:1 en esos mismos fondos: mismo rol de "acción que pierde datos",
   // pero solo dentro de la sesión.
   sesionDanger: '#eb7478',
+  // Rampa del mapa de asistencia: monótona y de pasos parejos (L 0,37 → 0,52 →
+  // 0,69). El tono codifica la DURACIÓN del día, no la cantidad de series:
+  // entre 12 y 15 series no hay diferencia perceptible, así que cuatro tonos
+  // por cantidad eran precisión falsa.
+  mapaVacio: '#232327',
+  mapaCorta: '#2f3a70', // menos de 40 min
+  mapaNormal: '#4a5cc4', // 40 a 70
+  mapaLarga: '#8093f0', // más de 70
 } as const;
 
 export const spacing = {
