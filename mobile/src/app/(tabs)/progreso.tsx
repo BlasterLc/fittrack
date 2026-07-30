@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { EncabezadoPantalla } from '@/components/EncabezadoPantalla';
 import { MapaAsistencia } from '@/components/MapaAsistencia';
