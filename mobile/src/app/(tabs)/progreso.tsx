@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { EncabezadoPantalla } from '@/components/EncabezadoPantalla';
 import { MapaAsistencia } from '@/components/MapaAsistencia';
@@ -40,10 +40,22 @@ export default function Progreso() {
   const grupos = useSeriesPorGrupo();
   const historial = useHistorial();
 
+  // Refresca los tres en paralelo: no hay dependencia entre ellos y esperar
+  // uno para pedir el siguiente solo alargaría el gesto sin motivo.
+  const refrescando = mapa.isRefetching || grupos.isRefetching || historial.isRefetching;
+  const refrescar = () => {
+    mapa.refetch();
+    grupos.refetch();
+    historial.refetch();
+  };
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <EncabezadoPantalla titulo="Progreso" />
-      <ScrollView contentContainerStyle={styles.cuerpo}>
+      <ScrollView
+        contentContainerStyle={styles.cuerpo}
+        refreshControl={<RefreshControl refreshing={refrescando} onRefresh={refrescar} />}
+      >
         <Bloque cargando={mapa.isPending} error={mapa.isError}>
           <MapaAsistencia dias={mapa.data ?? []} />
         </Bloque>
