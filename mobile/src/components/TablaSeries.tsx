@@ -196,13 +196,15 @@ function Fila({
       />
 
       <Pressable
-        style={[styles.check, styles.colCheck, hecha && styles.checkHecho]}
+        style={[styles.check, styles.colCheck]}
         onPress={onAlternar}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: hecha }}
         accessibilityLabel={`Serie ${numero} hecha`}
       >
-        <Text style={[styles.checkTexto, hecha && styles.checkTextoHecho]}>✓</Text>
+        <View style={[styles.casilla, hecha && styles.casillaHecha]}>
+          {hecha && <View style={styles.tilde} />}
+        </View>
       </Pressable>
     </Pressable>
   );
@@ -263,18 +265,40 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   campoHecho: { backgroundColor: 'transparent' },
+  // El blanco táctil son los 48dp completos de la celda; la casilla que se ve
+  // es más chica y va centrada adentro. Marcar tres series no puede llenar la
+  // fila de bloques de color.
   check: {
     minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 8,
   },
-  // Sin marcar es un contorno tenue; marcado se llena. El relleno usa
-  // `primary` como fondo con un tilde en `ink`, que es el único lugar donde
-  // ese par funciona: es un glifo grande, no texto normal.
-  checkTexto: { color: colors.sesionMuted, fontFamily: fonts.bold, fontSize: 22 },
-  checkHecho: { backgroundColor: colors.primary },
-  checkTextoHecho: { color: colors.ink },
+  casilla: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    borderWidth: 2,
+    // 3,62:1 sobre los dos fondos de fila, que es lo que WCAG 1.4.11 pide
+    // para el contorno de un control.
+    borderColor: colors.sesionBorde,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  casillaHecha: { backgroundColor: colors.primary, borderColor: colors.primary },
+  // El tilde va dibujado con dos bordes rotados, no con el glifo «✓»: como
+  // texto queda a merced de las métricas de Rubik, que lo descentran vertical
+  // y le cambian el grosor. Así es nítido y se centra solo. `ink` sobre
+  // `primary` da 3,71:1, suficiente para un objeto gráfico (el 3:1 de WCAG),
+  // que es lo que esto es ahora y antes no.
+  tilde: {
+    width: 11,
+    height: 6,
+    marginTop: -3,
+    borderLeftWidth: 2,
+    borderBottomWidth: 2,
+    borderColor: colors.ink,
+    transform: [{ rotate: '-45deg' }],
+  },
   vacio: {
     color: colors.sesionMuted,
     fontFamily: fonts.regular,
