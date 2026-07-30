@@ -192,6 +192,12 @@ const styles = StyleSheet.create({
   ejercicio: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },
   ejercicioNombre: { flex: 1, color: colors.ink, fontFamily: fonts.regular, fontSize: fontSize.sm },
   ejercicioSeries: {
+    // flexShrink: 1 porque en React Native el valor por defecto es 0 (a
+    // diferencia de la web): sin esto, el desglose de una pirámide o un drop
+    // set (series con distinto peso o reps, texto largo) se corta contra el
+    // borde de la pantalla en vez de encogerse.
+    flexShrink: 1,
+    textAlign: 'right',
     color: colors.muted,
     fontFamily: fonts.regular,
     fontSize: fontSize.sm,
