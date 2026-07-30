@@ -88,10 +88,16 @@ export function totalSeriesHechas(borrador: BorradorSesion): number {
   return borrador.ejercicios.reduce((n, e) => n + seriesHechas(e).length, 0);
 }
 
-/** El valor donde nace una fila: el default de la rutina, o el inicial. */
+/**
+ * El valor donde nace una fila: el default de la rutina, o el inicial.
+ *
+ * Se normaliza siempre, incluso lo que viene del servidor: hay rutinas con
+ * `weight_default` en 0 guardado antes de que el mínimo pasara a 2,5, y sin
+ * esto la fila nacería con un valor que la app ya no deja elegir.
+ */
 export function valorInicial(guardado: number | null, tipo: 'reps' | 'kg'): number {
-  if (guardado !== null) return guardado;
-  return tipo === 'reps' ? REPS_INICIAL : KILOS_INICIAL;
+  if (tipo === 'reps') return normalizarReps(guardado ?? REPS_INICIAL);
+  return normalizarKg(guardado ?? KILOS_INICIAL);
 }
 
 /** Redondea a la baja al medio kilo y lo deja dentro de los límites. */
