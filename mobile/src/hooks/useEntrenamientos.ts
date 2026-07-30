@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiPost } from '@/lib/api';
-import { finDelBorrador, type BorradorSesion } from '@/lib/sesion';
+import { finDelBorrador, seriesHechas, type BorradorSesion } from '@/lib/sesion';
 
 export type EntrenamientoGuardado = {
   id: number;
@@ -19,12 +19,17 @@ function aCuerpo(borrador: BorradorSesion, agregarARutina: string[]) {
     // El fin es la última serie, no ahora: un borrador retomado de otro día
     // guardaría un entrenamiento de 72 horas.
     ended_at: borrador.terminadoEn ?? finDelBorrador(borrador),
+    // Solo lo que se hizo de verdad: las series planificadas que quedaron sin
+    // marcar no son parte del entrenamiento, y un ejercicio que quedó entero
+    // sin hacer no viaja. El backend además exige al menos una serie por
+    // ejercicio, así que mandar una lista vacía sería un 422.
     ejercicios: borrador.ejercicios
-      .filter((e) => e.series.length > 0)
-      .map((e, i) => ({
-        catalog_id: e.catalogId,
+      .map((e) => ({ ejercicio: e, hechas: seriesHechas(e) }))
+      .filter(({ hechas }) => hechas.length > 0)
+      .map(({ ejercicio, hechas }, i) => ({
+        catalog_id: ejercicio.catalogId,
         orden: i,
-        series: e.series.map((s, j) => ({
+        series: hechas.map((s, j) => ({
           orden: j,
           reps: s.reps,
           weight_kg: s.kg,

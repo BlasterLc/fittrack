@@ -17,7 +17,7 @@ import {
   useRutinas,
   type RutinaEnLista,
 } from '@/hooks/useRutinas';
-import { escribirBorrador, leerBorrador } from '@/lib/sesion';
+import { escribirBorrador, leerBorrador, valorInicial } from '@/lib/sesion';
 import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
 
 export function RutinasLista() {
@@ -82,7 +82,14 @@ export function RutinasLista() {
           agregado: false,
           repsDefault: e.reps_default,
           kgDefault: e.weight_default,
-          series: [],
+          // Las filas nacen con el entrenamiento: tantas como hiciste la
+          // última vez, o una si el ejercicio es nuevo. Registrar la serie 2
+          // no puede costar un toque para «agregarla» primero.
+          series: Array.from({ length: Math.max(1, e.sets_default ?? 1) }, () => ({
+            reps: valorInicial(e.reps_default, 'reps'),
+            kg: valorInicial(e.weight_default, 'kg'),
+            completadaEn: null,
+          })),
         })),
       });
       router.push('/sesion');

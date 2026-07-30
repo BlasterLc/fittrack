@@ -154,6 +154,51 @@ def test_la_duracion_se_trunca_hacia_abajo_no_se_redondea(db_session):
     assert resumen["duracion_min"] == 52
 
 
+def test_el_resumen_del_dia_no_depende_del_timezone_de_la_base(db_session):
+    """El día se recorta con un rango UTC explícito, no con `date()`.
+
+    `date()` sobre un timestamptz usa el timezone de la SESIÓN de Postgres:
+    en una base configurada en America/Santiago, un entrenamiento de las 01:20
+    UTC cae en el día anterior. Supabase corre en UTC y por eso no se nota en
+    producción, pero dejaba el corte del día a merced de la configuración, y
+    en desacuerdo con la mitad de comidas del mismo endpoint, que sí usa un
+    rango explícito.
+    """
+    sembrar_catalogo(db_session)
+    inicio = dt.datetime(2026, 7, 30, 0, 0, tzinfo=dt.timezone.utc)
+    fin = inicio + dt.timedelta(days=1)
+
+    # 01:20 UTC del día 30: dentro del rango, aunque en Santiago sea el 29.
+    _entrenamiento(db_session, USUARIO, "madrugada", dt.datetime(2026, 7, 30, 1, 20, tzinfo=dt.timezone.utc))
+    # 23:30 UTC del día 29: fuera, aunque en Tokio ya sea el 30.
+    _entrenamiento(db_session, USUARIO, "vispera", dt.datetime(2026, 7, 29, 23, 30, tzinfo=dt.timezone.utc))
+
+    resumen = servicio.resumen_del_dia(db_session, USUARIO, inicio, fin)
+
+    assert resumen is not None
+    assert resumen["series"] == 1
+
+
+def _entrenamiento(sesion, user_id, client_id, empezado):
+    """Un entrenamiento de 30 minutos con una serie, en el momento dado."""
+    w = Workout(
+        user_id=user_id,
+        client_id=client_id,
+        started_at=empezado,
+        ended_at=empezado + dt.timedelta(minutes=30),
+    )
+    w.ejercicios = [
+        WorkoutExercise(
+            catalog_id="0025",
+            orden=0,
+            series=[WorkoutSet(orden=0, reps=8, weight_kg=80.0, completed_at=empezado)],
+        )
+    ]
+    sesion.add(w)
+    sesion.commit()
+    return w
+
+
 def test_el_mismo_client_id_no_crea_dos_entrenamientos(db_session):
     sembrar_catalogo(db_session)
 

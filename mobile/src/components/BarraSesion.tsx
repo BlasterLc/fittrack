@@ -7,6 +7,7 @@ import {
   esDeHoy,
   finDelBorrador,
   leerBorrador,
+  totalSeriesHechas,
   type BorradorSesion,
 } from '@/lib/sesion';
 import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
@@ -59,7 +60,10 @@ export function BarraSesion() {
    * Solo se cierra o se tira.
    */
   function resolverDeOtroDia(abierto: BorradorSesion) {
-    const hechas = abierto.ejercicios.reduce((n, e) => n + e.series.length, 0);
+    // Las HECHAS, no las filas: un borrador arranca con sus series
+    // planificadas, así que contar `series.length` ofrecería guardar un
+    // entrenamiento donde no se marcó nada, y el backend lo rechaza.
+    const hechas = totalSeriesHechas(abierto);
 
     if (hechas === 0) {
       Alert.alert(

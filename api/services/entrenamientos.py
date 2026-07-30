@@ -1,8 +1,8 @@
 """Lógica de entrenamientos. Los routers no deciden nada, solo traducen HTTP."""
 
-from datetime import date, datetime
+from datetime import datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -21,16 +21,25 @@ class EntrenamientoInvalido(ValueError):
     """El cuerpo no cumple las reglas: sin ejercicios válidos, fechas al revés…"""
 
 
-def resumen_del_dia(sesion: Session, user_id: str, dia: date) -> dict | None:
-    """Series y minutos de lo entrenado ese día, o None si no entrenó.
+def resumen_del_dia(
+    sesion: Session, user_id: str, inicio: datetime, fin: datetime
+) -> dict | None:
+    """Series y minutos de lo entrenado en esa ventana, o None si no entrenó.
 
     Si hubo más de un entrenamiento se suman: son dos sesiones del mismo día.
+
+    El recorte va por rango explícito y NO por `func.date()`: `date()` sobre un
+    timestamptz se evalúa en el timezone de la sesión de Postgres, así que el
+    mismo entrenamiento caía en un día o en otro según cómo estuviera
+    configurada la base. Además dejaba esta mitad del dashboard en desacuerdo
+    con la de comidas, que siempre usó un rango.
     """
     entrenamientos = list(
         sesion.execute(
             select(Workout).where(
                 Workout.user_id == user_id,
-                func.date(Workout.started_at) == dia,
+                Workout.started_at >= inicio,
+                Workout.started_at < fin,
             )
         ).scalars()
     )

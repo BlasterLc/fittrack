@@ -2,21 +2,23 @@ import { useEffect, useRef } from 'react';
 import { Pressable, ScrollView, Text, View, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { colors, fonts, fontSize, spacing } from '@/theme/tokens';
-import type { EjercicioBorrador } from '@/lib/sesion';
+import { seriesHechas, type EjercicioBorrador } from '@/lib/sesion';
 
 const TAMANO = 56;
 const PASO = TAMANO + spacing.sm;
 
 type Estado = 'terminado' | 'actual' | 'pendiente' | 'saltado';
 
-// No hay una cantidad de series "objetivo" en el borrador (Tarea 8): la
-// sesión no impone un plan fijo, se arma sobre la marcha. Por eso "terminado"
-// y "saltado" se definen por posición relativa a `indiceActual`, no por
-// contar series contra un total: un ejercicio anterior con series hechas está
-// terminado, uno anterior sin ninguna quedó saltado.
+// "Terminado" y "saltado" se definen por posición relativa a `indiceActual`:
+// un ejercicio anterior con series HECHAS está terminado, uno anterior sin
+// ninguna quedó saltado.
+//
+// Se cuentan las hechas, no `series.length`: desde la tabla de series los
+// ejercicios nacen con sus filas planificadas, así que la longitud es mayor
+// que cero incluso en uno que no se tocó, y todo se vería como terminado.
 function estadoDe(ejercicio: EjercicioBorrador, indice: number, indiceActual: number): Estado {
   if (indice === indiceActual) return 'actual';
-  if (indice < indiceActual) return ejercicio.series.length > 0 ? 'terminado' : 'saltado';
+  if (indice < indiceActual) return seriesHechas(ejercicio).length > 0 ? 'terminado' : 'saltado';
   return 'pendiente';
 }
 

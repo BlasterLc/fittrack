@@ -29,7 +29,6 @@ def resumen_del_dia(
     ahora = datetime.now(timezone.utc)
     inicio = ahora.replace(hour=0, minute=0, second=0, microsecond=0)
     fin = inicio + timedelta(days=1)
-    hoy = inicio.date()
 
     filas = db.execute(
         select(MealItem.calorias, MealItem.prot_g, MealItem.carbs_g, MealItem.fat_g)
@@ -66,6 +65,6 @@ def resumen_del_dia(
             fat=sum(f.fat_g for f in filas),
         ),
         metas_macros=metas_macros,
-        entrenamiento=servicio_entrenamientos.resumen_del_dia(db, user_id, hoy),
+        entrenamiento=servicio_entrenamientos.resumen_del_dia(db, user_id, inicio, fin),
         peso=None,
     )

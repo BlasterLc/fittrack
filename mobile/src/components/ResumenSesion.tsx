@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { View, Text, Pressable, ScrollView, Alert, ActivityIndicator, StyleSheet } from 'react-native';
 import { Segmentado } from './Segmentado';
-import { finDelBorrador, type BorradorSesion, type SerieBorrador } from '@/lib/sesion';
+import {
+  finDelBorrador,
+  formatoKg,
+  seriesHechas,
+  type BorradorSesion,
+  type SerieBorrador,
+} from '@/lib/sesion';
 import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
-
-function formatoKg(kg: number): string {
-  return Number.isInteger(kg) ? String(kg) : kg.toFixed(1);
-}
 
 // «3 × 8 · 80 kg» cuando todas las series de un ejercicio salieron iguales;
 // serie por serie cuando no, para no mostrar un patrón que no hubo.
@@ -47,7 +49,11 @@ export function ResumenSesion({
   // elección propia, no heredarla solo por haberlo hecho hoy.
   const [eleccion, setEleccion] = useState<Record<string, 'si' | 'no'>>({});
 
-  const hechos = borrador.ejercicios.filter((e) => e.series.length > 0);
+  // Solo lo efectivamente hecho: las series que quedaron planificadas y sin
+  // marcar no son parte del entrenamiento y no pueden aparecer en el cierre.
+  const hechos = borrador.ejercicios
+    .map((e) => ({ ...e, series: seriesHechas(e) }))
+    .filter((e) => e.series.length > 0);
   const totalSeries = hechos.reduce((n, e) => n + e.series.length, 0);
   const fin = borrador.terminadoEn ?? finDelBorrador(borrador);
   const minutos = Math.floor(

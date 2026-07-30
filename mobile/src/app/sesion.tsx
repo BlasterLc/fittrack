@@ -1,26 +1,26 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View, Text, Pressable, ScrollView, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSesion } from '@/hooks/useSesion';
 import { TiraEjercicios } from '@/components/TiraEjercicios';
-import { SerieActiva } from '@/components/SerieActiva';
+import { TablaSeries } from '@/components/TablaSeries';
 import { ResumenSesion } from '@/components/ResumenSesion';
 import { useGuardarEntrenamiento } from '@/hooks/useEntrenamientos';
 import { apiGet } from '@/lib/api';
 import { tomarSeleccion } from '@/lib/seleccionEjercicios';
-import { finDelBorrador, valorInicial, type EjercicioBorrador, type SerieBorrador } from '@/lib/sesion';
+import {
+  finDelBorrador,
+  totalSeriesHechas,
+  valorInicial,
+  type EjercicioBorrador,
+  type SerieBorrador,
+} from '@/lib/sesion';
 import type { EjercicioFicha } from '@/hooks/useCatalogo';
 import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
 
 type Paso = 'entrenando' | 'resumen';
-
-// Qué muestra la tarjeta de la serie activa para el ejercicio actual:
-// 'nueva' arma una serie con los valores de arranque (o los de la última, si
-// ya hay alguna), un número reabre esa serie ya hecha para editarla, y null
-// deja ver solo la lista de hechas más "+ Agregar serie".
-type EstadoEdicion = 'nueva' | number | null;
 
 function formatoReloj(segundos: number): string {
   const s = Math.max(0, Math.floor(segundos));
@@ -34,13 +34,7 @@ export default function Sesion() {
   const { borrador, cargando, actualizar, descartar } = useSesion();
   const guardar = useGuardarEntrenamiento();
   const [paso, setPaso] = useState<Paso>('entrenando');
-  const [estadoEdicion, setEstadoEdicion] = useState<EstadoEdicion>(null);
   const [ahora, setAhora] = useState(() => Date.now());
-  // Identifica qué ejercicio tenía montada la tarjeta la última vez que se
-  // decidió `estadoEdicion`. Declarado acá arriba, junto a los demás hooks,
-  // para que se llame siempre en el mismo orden sin importar si el borrador
-  // ya cargó o no.
-  const idAnteriorRef = useRef<string | null>(null);
 
   useEffect(() => {
     const id = setInterval(() => setAhora(Date.now()), 1000);
@@ -80,7 +74,16 @@ export default function Sesion() {
             agregado: true,
             repsDefault: null,
             kgDefault: null,
-            series: [],
+            // Nace con una fila pendiente, igual que los de la rutina: entrar
+            // a un ejercicio y encontrarlo vacío obligaría a un toque extra
+            // antes de poder registrar nada.
+            series: [
+              {
+                reps: valorInicial(null, 'reps'),
+                kg: valorInicial(null, 'kg'),
+                completadaEn: null,
+              },
+            ],
           }));
           actualizar({ ...borrador, ejercicios: [...borrador.ejercicios, ...agregados] });
         })
@@ -108,18 +111,6 @@ export default function Sesion() {
 
   const indiceActual = borrador.indiceActual;
   const ejercicio = borrador.ejercicios[indiceActual];
-  const ejercicicioId = ejercicio?.catalogId ?? null;
-
-  // Al entrar a un ejercicio distinto del que tenía la tarjeta montada
-  // (incluida la primera vez que el borrador termina de cargar), decide
-  // desde cero qué mostrar: la rueda si no tiene ninguna serie, o el resumen
-  // si ya tiene. Ajustar el estado durante el render (en vez de en un
-  // useEffect) evita el parpadeo de un frame con el ejercicio equivocado:
-  // React reintenta el render con el valor nuevo antes de pintar.
-  if (ejercicicioId !== idAnteriorRef.current) {
-    idAnteriorRef.current = ejercicicioId;
-    setEstadoEdicion(ejercicio && ejercicio.series.length === 0 ? 'nueva' : null);
-  }
 
   function alGuardar(agregarARutina: string[]) {
     guardar.mutate(
@@ -172,34 +163,8 @@ export default function Sesion() {
     actualizar({ ...borrador!, ejercicios });
   }
 
-  function confirmarSerie(reps: number, kg: number) {
-    const series = [...ejercicio.series];
-    if (typeof estadoEdicion === 'number') {
-      // Corrige una serie ya hecha: conserva el momento en que se hizo, no
-      // el de la edición. Tocarlo acá rompería el cronómetro de descanso
-      // (cuenta desde la última `completadaEn`) y el fin del entrenamiento
-      // que se manda a guardar.
-      series[estadoEdicion] = { ...series[estadoEdicion], reps, kg };
-    } else {
-      series.push({ reps, kg, completadaEn: new Date().toISOString() });
-    }
-    guardarSeries(series);
-    setEstadoEdicion(null);
-  }
-
-  function eliminarSerie() {
-    const series =
-      typeof estadoEdicion === 'number'
-        ? ejercicio.series.filter((_, i) => i !== estadoEdicion)
-        : ejercicio.series;
-    if (typeof estadoEdicion === 'number') {
-      guardarSeries(series);
-    }
-    setEstadoEdicion(series.length === 0 ? 'nueva' : null);
-  }
-
   function alTerminar() {
-    const hayAlgo = borrador!.ejercicios.some((e) => e.series.length > 0);
+    const hayAlgo = totalSeriesHechas(borrador!) > 0;
     if (!hayAlgo) {
       Alert.alert(
         'Sin series registradas',
@@ -218,18 +183,11 @@ export default function Sesion() {
     setPaso('resumen');
   }
 
-  const repsInicial =
-    typeof estadoEdicion === 'number'
-      ? ejercicio.series[estadoEdicion].reps
-      : ejercicio.series.length > 0
-        ? ejercicio.series.at(-1)!.reps
-        : valorInicial(ejercicio.repsDefault, 'reps', ejercicio.equipamiento);
-  const kgInicial =
-    typeof estadoEdicion === 'number'
-      ? ejercicio.series[estadoEdicion].kg
-      : ejercicio.series.length > 0
-        ? ejercicio.series.at(-1)!.kg
-        : valorInicial(ejercicio.kgDefault, 'kg', ejercicio.equipamiento);
+  // «Listo» solo cuando están hechas TODAS las series planificadas, no
+  // después de cada una: decir que el ejercicio terminó cuando vas 1 de 3 es
+  // falso y empuja a saltarlo.
+  const todasHechas =
+    ejercicio.series.length > 0 && ejercicio.series.every((s) => s.completadaEn !== null);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -246,7 +204,12 @@ export default function Sesion() {
         onAgregar={() => router.push('/gym/rutina/agregar')}
       />
 
-      <ScrollView contentContainerStyle={styles.cuerpo}>
+      <ScrollView
+        contentContainerStyle={styles.cuerpo}
+        // Sin esto, con el teclado abierto el primer toque en el ✓ solo lo
+        // cierra y hay que tocar de nuevo para marcar la serie.
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.cabeceraEjercicio}>
           {/* Sin autoplay={false}: acá el GIF sí se anima, al revés que en las
               miniaturas de la tira. */}
@@ -260,58 +223,28 @@ export default function Sesion() {
           <Text style={styles.nombreEjercicio}>{ejercicio.nombre}</Text>
         </View>
 
-        {ejercicio.series.map(
-          (serie, i) =>
-            i !== estadoEdicion && (
-              <Pressable
-                key={i}
-                style={styles.filaSerie}
-                onPress={() => setEstadoEdicion(i)}
-                accessibilityRole="button"
-                accessibilityLabel={`Serie ${i + 1}: ${serie.reps} repeticiones, ${serie.kg} kilos`}
-              >
-                <Text style={styles.filaSerieTexto}>
-                  {serie.reps} × {serie.kg} kg
-                </Text>
-                <Text style={styles.filaSerieEditar}>Editar</Text>
-              </Pressable>
-            ),
-        )}
+        <TablaSeries
+          // Remontar al cambiar de ejercicio descarta el texto a medio teclear
+          // de los campos, que es local a cada fila.
+          key={ejercicio.catalogId}
+          ejercicio={ejercicio}
+          onCambiar={guardarSeries}
+        />
 
-        {estadoEdicion === null && (
-          <View style={styles.listoFila}>
-            <Text style={styles.listoTexto}>{ejercicio.nombre} listo</Text>
-            {siguiente && (
-              <Pressable
-                onPress={() => actualizar({ ...borrador, indiceActual: indiceActual + 1 })}
-                hitSlop={12}
-                accessibilityRole="button"
-              >
-                <Text style={styles.siguienteTexto}>Siguiente: {siguiente.nombre} ›</Text>
-              </Pressable>
-            )}
-          </View>
-        )}
-
-        {estadoEdicion === null && (
-          <Pressable
-            style={styles.agregarSerie}
-            onPress={() => setEstadoEdicion('nueva')}
-            accessibilityRole="button"
-          >
-            <Text style={styles.agregarSerieTexto}>+ Agregar serie</Text>
-          </Pressable>
-        )}
-
-        {estadoEdicion !== null && (
-          <SerieActiva
-            key={`${ejercicio.catalogId}:${estadoEdicion}`}
-            repsInicial={repsInicial}
-            kgInicial={kgInicial}
-            onConfirmar={confirmarSerie}
-            onEliminar={eliminarSerie}
-          />
-        )}
+        <View style={styles.pieEjercicio}>
+          {todasHechas && <Text style={styles.listoTexto}>{ejercicio.nombre} listo</Text>}
+          {siguiente && (
+            <Pressable
+              style={styles.siguiente}
+              onPress={() => actualizar({ ...borrador, indiceActual: indiceActual + 1 })}
+              accessibilityRole="button"
+            >
+              <Text style={styles.siguienteTexto} numberOfLines={1}>
+                Siguiente: {siguiente.nombre} ›
+              </Text>
+            </Pressable>
+          )}
+        </View>
       </ScrollView>
 
       <View style={styles.barraInferior}>
@@ -351,39 +284,20 @@ const styles = StyleSheet.create({
     fontSize: fontSize.lg,
     textAlign: 'center',
   },
-  filaSerie: {
+  pieEjercicio: { gap: spacing.sm, marginTop: spacing.sm },
+  listoTexto: {
+    color: colors.sesionMuted,
+    fontFamily: fonts.regular,
+    fontSize: fontSize.sm,
+    textAlign: 'center',
+  },
+  siguiente: {
     minHeight: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    backgroundColor: colors.sesionSurface,
-    borderRadius: 10,
-  },
-  filaSerieTexto: {
-    color: colors.ink,
-    fontFamily: fonts.semibold,
-    fontSize: fontSize.base,
-    fontVariant: ['tabular-nums'],
-  },
-  filaSerieEditar: { color: colors.sesionMuted, fontFamily: fonts.medium, fontSize: fontSize.sm },
-  listoFila: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.sm,
-  },
-  listoTexto: { color: colors.sesionMuted, fontFamily: fonts.regular, fontSize: fontSize.sm },
-  siguienteTexto: { color: colors.sesionInk, fontFamily: fonts.semibold, fontSize: fontSize.sm },
-  agregarSerie: {
-    minHeight: 48,
-    borderWidth: 1,
-    borderColor: colors.sesionBorde,
-    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: spacing.md,
   },
-  agregarSerieTexto: { color: colors.sesionInk, fontFamily: fonts.medium, fontSize: fontSize.base },
+  siguienteTexto: { color: colors.sesionInk, fontFamily: fonts.semibold, fontSize: fontSize.sm },
   barraInferior: {
     flexDirection: 'row',
     alignItems: 'center',
