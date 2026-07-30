@@ -141,6 +141,58 @@ def test_heatmap_rechaza_ventana_al_reves(client, auth_headers):
     assert respuesta.status_code == 422
 
 
+def test_heatmap_excluye_el_entrenamiento_que_empieza_justo_en_hasta(
+    client, auth_headers, db_session
+):
+    """`hasta` es el borde abierto: lo que empieza justo ahí es de la ventana siguiente."""
+    _crear_entrenamiento(db_session, YO, BASE, minutos=48)
+
+    cuerpo = client.get(
+        "/api/progress/heatmap",
+        params={
+            "desde": (BASE - dt.timedelta(days=1)).isoformat(),
+            "hasta": BASE.isoformat(),
+        },
+        headers=auth_headers,
+    ).json()
+
+    assert cuerpo == []
+
+
+def test_heatmap_incluye_el_entrenamiento_que_empieza_justo_en_desde(
+    client, auth_headers, db_session
+):
+    """`desde` es el borde cerrado: lo que empieza justo ahí sí es de la ventana."""
+    _crear_entrenamiento(db_session, YO, BASE, minutos=48)
+
+    cuerpo = client.get(
+        "/api/progress/heatmap",
+        params={
+            "desde": BASE.isoformat(),
+            "hasta": (BASE + dt.timedelta(days=1)).isoformat(),
+        },
+        headers=auth_headers,
+    ).json()
+
+    assert len(cuerpo) == 1
+    assert cuerpo[0]["minutos"] == 48
+
+
+def test_heatmap_ventana_de_un_instante_no_es_invalida(client, auth_headers):
+    """`desde == hasta` es una ventana válida, aunque en la práctica quede vacía
+    salvo que algo empiece exactamente en ese instante. No es lo mismo que
+    `desde > hasta`, que sí es un error del cliente."""
+    respuesta = client.get(
+        "/api/progress/heatmap",
+        params={
+            "desde": BASE.isoformat(),
+            "hasta": BASE.isoformat(),
+        },
+        headers=auth_headers,
+    )
+    assert respuesta.status_code == 200
+
+
 def test_heatmap_de_menos_de_un_minuto_devuelve_cero(client, auth_headers, db_session):
     """Existe uno real de 54 segundos en producción. Es dato válido, no un error."""
     entrenamiento = Workout(
