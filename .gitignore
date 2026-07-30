@@ -2,6 +2,9 @@
 docs/superpowers/
 .superpowers/
 
+# Grafo de código generado por graphify — no se versiona
+graphify-out/
+
 # Contexto para los agentes — invariantes del proyecto, tampoco se versiona
 CLAUDE.md
 
