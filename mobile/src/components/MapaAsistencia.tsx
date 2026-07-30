@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { claveDeDia, type DiaEntrenado } from '@/hooks/useProgreso';
 import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
@@ -72,21 +73,40 @@ export function MapaAsistencia({ dias }: { dias: DiaEntrenado[] }) {
   const porDia = minutosPorDia(dias);
   const hoy = new Date();
 
+  // La cuadrícula arranca el lunes de la primera semana visible, así cada
+  // columna es una semana entera y las filas se alinean por día. Se calcula
+  // ANTES de elegir la ventana porque la ventana necesita esta misma base.
+  const desdeElLunes = (hoy.getDay() + 6) % 7;
+  const lunesActual = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - desdeElLunes);
+
   // La ventana más chica que contenga el primer entrenamiento. Sin datos, la
   // más chica: no tiene sentido abrir en un año vacío.
+  //
+  // Se cuenta en SEMANAS CALENDARIO alineadas a lunes, igual que la grilla —
+  // NUNCA en días crudos desde `hoy`. Contar días crudos desalinea con
+  // `primerLunes` (que sí está alineado a lunes) hasta en 6 días según qué día
+  // de la semana se abra la app: el entrenamiento que decidió el tamaño de la
+  // ventana podía caer justo ANTES de la primera columna visible y
+  // desaparecer del mapa sin avisar.
   const masViejo = dias.reduce<number | null>((min, d) => {
     const t = new Date(d.started_at).getTime();
     return min === null || t < min ? t : min;
   }, null);
-  const semanasDeHistorial =
-    masViejo === null ? 0 : Math.floor((hoy.getTime() - masViejo) / (7 * DIA_MS));
+  let semanasNecesarias = 1;
+  if (masViejo !== null) {
+    const fechaMasViejo = new Date(masViejo);
+    const diaMasViejo = (fechaMasViejo.getDay() + 6) % 7;
+    const lunesMasViejo = new Date(
+      fechaMasViejo.getFullYear(),
+      fechaMasViejo.getMonth(),
+      fechaMasViejo.getDate() - diaMasViejo,
+    );
+    semanasNecesarias =
+      Math.round((lunesActual.getTime() - lunesMasViejo.getTime()) / (7 * DIA_MS)) + 1;
+  }
   const ventana =
-    VENTANAS.find((v) => semanasDeHistorial < v.semanas) ?? VENTANAS[VENTANAS.length - 1];
+    VENTANAS.find((v) => semanasNecesarias <= v.semanas) ?? VENTANAS[VENTANAS.length - 1];
 
-  // La cuadrícula arranca el lunes de la primera semana visible, así cada
-  // columna es una semana entera y las filas se alinean por día.
-  const desdeElLunes = (hoy.getDay() + 6) % 7;
-  const lunesActual = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - desdeElLunes);
   const primerLunes = new Date(lunesActual.getTime() - (ventana.semanas - 1) * 7 * DIA_MS);
 
   const columnas = Array.from({ length: ventana.semanas }, (_, semana) =>
@@ -104,6 +124,16 @@ export function MapaAsistencia({ dias }: { dias: DiaEntrenado[] }) {
 
   const racha = rachaDeSemanas(porDia, hoy);
   const totalDias = porDia.size;
+
+  const scrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    // `flexDirection: 'row-reverse'` no sirve para esto: con un solo hijo que ya
+    // ocupa todo el ancho intrínseco, Yoga no tiene espacio libre que
+    // redistribuir y es un no-op. Se salta al final explícitamente, el mismo
+    // patrón que usa TiraEjercicios.tsx para posicionar el scroll.
+    scrollRef.current?.scrollToEnd({ animated: false });
+  }, [ventana.semanas]);
 
   const cuadricula = (
     <View style={styles.cuadricula}>
@@ -135,12 +165,7 @@ export function MapaAsistencia({ dias }: { dias: DiaEntrenado[] }) {
       {ventana.semanas <= 8 ? (
         cuadricula
       ) : (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          // El presente a la derecha: es lo que uno viene a mirar.
-          contentContainerStyle={styles.scrollFin}
-        >
+        <ScrollView ref={scrollRef} horizontal showsHorizontalScrollIndicator={false}>
           {cuadricula}
         </ScrollView>
       )}
@@ -171,7 +196,6 @@ const styles = StyleSheet.create({
   // Los días que todavía no llegaron no se dibujan como huecos: no son días sin
   // entrenar, no existen todavía.
   futuro: { opacity: 0 },
-  scrollFin: { flexDirection: 'row-reverse' },
   cifras: { flexDirection: 'row', gap: spacing.xl },
   cifra: {
     color: colors.ink,
