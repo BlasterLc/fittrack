@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from api.auth import get_current_user
 from api.database import get_db
-from api.schemas import DiaEntrenado, SeriesDeGrupo
+from api.schemas import DiaEntrenado, SeriesDeGrupo, SesionDeProgresion
 from api.services import progreso as servicio
 
 router = APIRouter(
@@ -45,3 +45,15 @@ def series_por_grupo(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)
         ) from error
+
+
+@router.get("/exercise/{catalog_id}", response_model=list[SesionDeProgresion])
+def progresion_ejercicio(
+    catalog_id: str,
+    limite: int = 12,
+    hasta: datetime | None = None,
+    user_id: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[dict]:
+    """El peso máximo levantado por sesión, para el gráfico de progresión."""
+    return servicio.progresion_ejercicio(db, user_id, catalog_id, limite, hasta)

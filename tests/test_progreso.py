@@ -428,3 +428,146 @@ def test_heatmap_de_menos_de_un_minuto_devuelve_cero(client, auth_headers, db_se
     ).json()
 
     assert cuerpo[0]["minutos"] == 0
+
+
+def test_exercise_progresion_sin_token_devuelve_401(client):
+    respuesta = client.get("/api/progress/exercise/0001")
+    assert respuesta.status_code == 401
+
+
+def test_exercise_progresion_devuelve_el_maximo_de_la_sesion_no_la_suma(
+    client, auth_headers, db_session
+):
+    """Dos series en la misma sesión: se queda con la más pesada."""
+    entrenamiento = Workout(
+        user_id=YO,
+        client_id=str(uuid.uuid4()),
+        routine_id=None,
+        started_at=BASE,
+        ended_at=BASE + dt.timedelta(minutes=40),
+    )
+    entrenamiento.ejercicios = [
+        WorkoutExercise(
+            catalog_id="0001",
+            orden=0,
+            series=[
+                WorkoutSet(orden=0, reps=10, weight_kg=40, completed_at=BASE),
+                WorkoutSet(orden=1, reps=8, weight_kg=45, completed_at=BASE),
+            ],
+        )
+    ]
+    db_session.add(entrenamiento)
+    db_session.commit()
+
+    cuerpo = client.get(
+        "/api/progress/exercise/0001", headers=auth_headers
+    ).json()
+
+    assert len(cuerpo) == 1
+    assert cuerpo[0]["max_weight_kg"] == 45.0
+
+
+def test_exercise_progresion_no_mezcla_ejercicios_distintos_de_la_misma_sesion(
+    client, auth_headers, db_session
+):
+    entrenamiento = Workout(
+        user_id=YO,
+        client_id=str(uuid.uuid4()),
+        routine_id=None,
+        started_at=BASE,
+        ended_at=BASE + dt.timedelta(minutes=40),
+    )
+    entrenamiento.ejercicios = [
+        WorkoutExercise(
+            catalog_id="0001",
+            orden=0,
+            series=[WorkoutSet(orden=0, reps=10, weight_kg=40, completed_at=BASE)],
+        ),
+        WorkoutExercise(
+            catalog_id="0002",
+            orden=1,
+            series=[WorkoutSet(orden=0, reps=10, weight_kg=90, completed_at=BASE)],
+        ),
+    ]
+    db_session.add(entrenamiento)
+    db_session.commit()
+
+    cuerpo = client.get(
+        "/api/progress/exercise/0001", headers=auth_headers
+    ).json()
+
+    assert len(cuerpo) == 1
+    assert cuerpo[0]["max_weight_kg"] == 40.0
+
+
+def test_exercise_progresion_ordena_de_mas_reciente_a_mas_vieja(
+    client, auth_headers, db_session
+):
+    _crear_entrenamiento(db_session, YO, BASE, minutos=30, catalog_id="0001")
+    _crear_entrenamiento(
+        db_session, YO, BASE - dt.timedelta(days=7), minutos=30, catalog_id="0001"
+    )
+
+    cuerpo = client.get(
+        "/api/progress/exercise/0001", headers=auth_headers
+    ).json()
+
+    assert len(cuerpo) == 2
+    assert cuerpo[0]["started_at"] > cuerpo[1]["started_at"]
+
+
+def test_exercise_progresion_respeta_el_limite(client, auth_headers, db_session):
+    for i in range(3):
+        _crear_entrenamiento(
+            db_session, YO, BASE - dt.timedelta(days=i), minutos=30, catalog_id="0001"
+        )
+
+    cuerpo = client.get(
+        "/api/progress/exercise/0001",
+        params={"limite": 2},
+        headers=auth_headers,
+    ).json()
+
+    assert len(cuerpo) == 2
+
+
+def test_exercise_progresion_pagina_con_el_cursor_hasta(
+    client, auth_headers, db_session
+):
+    """`hasta` es el cursor: solo trae sesiones ANTERIORES a esa fecha."""
+    _crear_entrenamiento(db_session, YO, BASE, minutos=30, catalog_id="0001")
+    _crear_entrenamiento(
+        db_session, YO, BASE - dt.timedelta(days=7), minutos=30, catalog_id="0001"
+    )
+
+    cuerpo = client.get(
+        "/api/progress/exercise/0001",
+        params={"limite": 12, "hasta": BASE.isoformat()},
+        headers=auth_headers,
+    ).json()
+
+    # No solo la longitud: un 404 con `{"detail": "Not Found"}` también tiene
+    # longitud 1 y haría pasar el test sin que el endpoint exista.
+    assert len(cuerpo) == 1
+    assert cuerpo[0]["max_weight_kg"] == 40.0
+
+
+def test_exercise_progresion_ignora_a_otros_usuarios(client, auth_headers, db_session):
+    _crear_entrenamiento(db_session, YO, BASE, minutos=30, catalog_id="0001")
+    _crear_entrenamiento(
+        db_session, "otro-usuario", BASE, minutos=30, catalog_id="0001"
+    )
+
+    cuerpo = client.get(
+        "/api/progress/exercise/0001", headers=auth_headers
+    ).json()
+
+    assert len(cuerpo) == 1
+    assert cuerpo[0]["max_weight_kg"] == 40.0
+
+
+def test_exercise_progresion_sin_historial_devuelve_lista_vacia(client, auth_headers):
+    cuerpo = client.get(
+        "/api/progress/exercise/0001", headers=auth_headers
+    ).json()
+    assert cuerpo == []

@@ -93,3 +93,38 @@ def series_por_grupo(
         {"grupo": grupo if grupo is not None else SIN_CLASIFICAR, "series": series}
         for grupo, series in filas
     ]
+
+
+def progresion_ejercicio(
+    sesion: Session,
+    user_id: str,
+    catalog_id: str,
+    limite: int,
+    hasta: datetime | None,
+) -> list[dict]:
+    """El máximo de kg levantado por sesión en ESTE ejercicio.
+
+    Se agrupa por entrenamiento (Workout.id), no por calendario: la ventana
+    son las últimas SESIONES donde apareció el ejercicio, no días ni semanas.
+    Un ejercicio puede hacerse cada varias semanas y una ventana calendario
+    dejaría casi todo vacío, a diferencia del mapa de asistencia.
+    """
+    condiciones = [Workout.user_id == user_id, WorkoutExercise.catalog_id == catalog_id]
+    if hasta is not None:
+        condiciones.append(Workout.started_at < hasta)
+
+    filas = sesion.execute(
+        select(Workout.started_at, func.max(WorkoutSet.weight_kg))
+        .select_from(WorkoutSet)
+        .join(WorkoutExercise, WorkoutSet.workout_exercise_id == WorkoutExercise.id)
+        .join(Workout, WorkoutExercise.workout_id == Workout.id)
+        .where(*condiciones)
+        .group_by(Workout.id, Workout.started_at)
+        .order_by(Workout.started_at.desc())
+        .limit(limite)
+    ).all()
+
+    return [
+        {"started_at": inicio, "max_weight_kg": maximo}
+        for inicio, maximo in filas
+    ]
