@@ -303,3 +303,10 @@ class SeriesDeGrupo(BaseModel):
 
     grupo: str
     series: int
+
+
+class SesionDeProgresion(BaseModel):
+    """El peso máximo levantado en una sesión, para el gráfico de progresión."""
+
+    started_at: datetime
+    max_weight_kg: float
