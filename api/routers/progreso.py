@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from api.auth import get_current_user
@@ -50,7 +50,7 @@ def series_por_grupo(
 @router.get("/exercise/{catalog_id}", response_model=list[SesionDeProgresion])
 def progresion_ejercicio(
     catalog_id: str,
-    limite: int = 12,
+    limite: int = Query(default=12, ge=1, le=100),
     hasta: datetime | None = None,
     user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),

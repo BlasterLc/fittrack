@@ -513,7 +513,16 @@ def test_exercise_progresion_ordena_de_mas_reciente_a_mas_vieja(
     ).json()
 
     assert len(cuerpo) == 2
-    assert cuerpo[0]["started_at"] > cuerpo[1]["started_at"]
+    assert dt.datetime.fromisoformat(cuerpo[0]["started_at"]) > dt.datetime.fromisoformat(
+        cuerpo[1]["started_at"]
+    )
+
+
+def test_exercise_progresion_limite_negativo_da_422(client, auth_headers):
+    respuesta = client.get(
+        "/api/progress/exercise/0001", params={"limite": -1}, headers=auth_headers
+    )
+    assert respuesta.status_code == 422
 
 
 def test_exercise_progresion_respeta_el_limite(client, auth_headers, db_session):
@@ -571,3 +580,27 @@ def test_exercise_progresion_sin_historial_devuelve_lista_vacia(client, auth_hea
         "/api/progress/exercise/0001", headers=auth_headers
     ).json()
     assert cuerpo == []
+
+
+def test_exercise_progresion_encadena_dos_paginas_sin_duplicar(
+    client, auth_headers, db_session
+):
+    for i in range(15):
+        _crear_entrenamiento(
+            db_session, YO, BASE - dt.timedelta(days=i), minutos=30, catalog_id="0001"
+        )
+
+    primera = client.get(
+        "/api/progress/exercise/0001", headers=auth_headers
+    ).json()
+    assert len(primera) == 12
+
+    segunda = client.get(
+        "/api/progress/exercise/0001",
+        params={"hasta": primera[-1]["started_at"]},
+        headers=auth_headers,
+    ).json()
+    assert len(segunda) == 3
+
+    todos = [s["started_at"] for s in primera] + [s["started_at"] for s in segunda]
+    assert len(todos) == len(set(todos))

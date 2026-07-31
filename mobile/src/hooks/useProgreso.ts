@@ -119,7 +119,7 @@ const LIMITE_PROGRESION = 12;
 /**
  * El peso máximo por sesión de un ejercicio, paginado hacia atrás por cursor.
  *
- * A diferencia de `useMapa` (que mide la ventana en semanas calendario), acá
+ * A diferencia de `useMapa` (que mide la ventana en semanas calendario), aquí
  * la ventana son las últimas SESIONES donde apareció el ejercicio: un
  * ejercicio puede hacerse cada varias semanas y una ventana calendario
  * dejaría casi todo vacío.
