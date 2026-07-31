@@ -3,6 +3,7 @@ import { apiGet } from '@/lib/api';
 
 export type DiaEntrenado = { started_at: string; minutos: number };
 export type SeriesDeGrupo = { grupo: string; series: number };
+export type SesionDeProgresion = { started_at: string; max_weight_kg: number };
 
 export type SerieDeHistorial = { orden: number; reps: number; weight_kg: number };
 export type EjercicioDeHistorial = {
@@ -109,5 +110,30 @@ export function useHistorial() {
     // seguiría pidiendo páginas vacías para siempre.
     getNextPageParam: (ultima) =>
       ultima.length < PAGINA ? undefined : ultima[ultima.length - 1].started_at,
+  });
+}
+
+/** Cuántas sesiones trae cada página del gráfico de progresión. */
+const LIMITE_PROGRESION = 12;
+
+/**
+ * El peso máximo por sesión de un ejercicio, paginado hacia atrás por cursor.
+ *
+ * A diferencia de `useMapa` (que mide la ventana en semanas calendario), acá
+ * la ventana son las últimas SESIONES donde apareció el ejercicio: un
+ * ejercicio puede hacerse cada varias semanas y una ventana calendario
+ * dejaría casi todo vacío.
+ */
+export function useProgresionEjercicio(catalogId: string) {
+  return useInfiniteQuery({
+    queryKey: ['progreso', 'ejercicio', catalogId],
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam }) =>
+      apiGet<SesionDeProgresion[]>(
+        `/api/progress/exercise/${catalogId}?limite=${LIMITE_PROGRESION}` +
+          (pageParam ? `&hasta=${encodeURIComponent(pageParam)}` : ''),
+      ),
+    getNextPageParam: (ultima) =>
+      ultima.length < LIMITE_PROGRESION ? undefined : ultima[ultima.length - 1].started_at,
   });
 }
