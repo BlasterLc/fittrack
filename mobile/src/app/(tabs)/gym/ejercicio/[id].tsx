@@ -10,6 +10,7 @@ import Animated, {
   useSharedValue,
 } from 'react-native-reanimated';
 import { useFicha } from '@/hooks/useCatalogo';
+import { GraficoProgresion } from '@/components/GraficoProgresion';
 import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
 
 // Tope que fija la licencia de Gym visual. No se escala hacia arriba.
@@ -111,8 +112,7 @@ export default function Ficha() {
             etiqueta="Secundarios"
             valor={ficha.data.secondary_muscles_es.join(' · ') || '—'}
           />
-          {/* Sale de workout_sets, que existe recién en la Fase 6. */}
-          <Dato etiqueta="Récord personal" valor="Sin registros todavía" atenuado />
+          <GraficoProgresion catalogId={id} />
 
           <View style={styles.seccion}>
             <Text style={styles.etiquetaSeccion}>Técnica</Text>
