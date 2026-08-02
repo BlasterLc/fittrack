@@ -174,6 +174,25 @@ class Profile(Base):
     )
 
 
+class WeightEntry(Base):
+    """Un registro de peso corporal. Aislado por user_id (= auth.users.id, sin FK).
+
+    Se permiten varios registros por día: no hay deduplicación, cada uno
+    guarda su propio `recorded_at`. El "peso actual" que usa el cálculo de
+    metas (ver services/perfil.py) es el registro más reciente, no un campo
+    aparte de `Profile`.
+    """
+
+    __tablename__ = "weight_entries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    kg: Mapped[float] = mapped_column(Float, nullable=False)
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class Workout(Base):
     """Un entrenamiento hecho. Aislado por user_id (= auth.users.id, sin FK).
 
