@@ -2,7 +2,7 @@ import datetime as dt
 
 import pytest
 
-from api.models import Profile
+from api.models import Profile, WeightEntry
 from api.services import perfil as servicio
 
 USUARIO = "11111111-1111-1111-1111-111111111111"
@@ -26,7 +26,6 @@ def test_un_perfil_guarda_los_datos_de_su_usuario(db_session):
         sexo="hombre",
         fecha_nacimiento=dt.date(1998, 3, 14),
         altura_cm=176,
-        peso_kg=78.0,
         actividad="moderado",
         objetivo="ganar",
     )
@@ -36,7 +35,6 @@ def test_un_perfil_guarda_los_datos_de_su_usuario(db_session):
     guardado = db_session.get(Profile, USUARIO)
     assert guardado.nombre == "Matías"
     assert guardado.altura_cm == 176
-    assert guardado.peso_kg == 78.0
     # Las metas manuales arrancan vacías: se usan las calculadas.
     assert guardado.meta_calorias is None
 
@@ -49,7 +47,6 @@ def test_un_perfil_puede_estar_a_medias(db_session):
 
     guardado = db_session.get(Profile, USUARIO)
     assert guardado.sexo is None
-    assert guardado.peso_kg is None
 
 
 def test_guardar_crea_el_perfil_si_no_existe(db_session):
@@ -64,9 +61,19 @@ def test_guardar_converge_y_borra_lo_que_no_llega(db_session):
     """El cuerpo describe el estado final, igual que el PUT de rutinas."""
     servicio.guardar(db_session, USUARIO, DATOS_COMPLETOS)
 
+    servicio.guardar(db_session, USUARIO, {**DATOS_COMPLETOS, "sexo": None})
+
+    assert db_session.get(Profile, USUARIO).sexo is None
+
+
+def test_peso_en_none_no_borra_el_registro_mas_reciente(db_session):
+    """A diferencia del resto de los campos, el peso es de solo agregar: la
+    pantalla de Perfil no tiene forma de "borrar" el historial de peso."""
+    servicio.guardar(db_session, USUARIO, DATOS_COMPLETOS)
+
     servicio.guardar(db_session, USUARIO, {**DATOS_COMPLETOS, "peso_kg": None})
 
-    assert db_session.get(Profile, USUARIO).peso_kg is None
+    assert servicio.resolver(db_session, USUARIO).peso_kg == 78.0
 
 
 def test_resolver_devuelve_las_metas_calculadas(db_session):
@@ -185,6 +192,19 @@ def test_el_perfil_de_otro_usuario_no_se_ve(db_session):
     servicio.guardar(db_session, OTRO_USUARIO, DATOS_COMPLETOS)
 
     assert servicio.resolver(db_session, USUARIO).perfil is None
+
+
+def test_peso_registrado_sin_perfil_aparece_en_el_resuelto(db_session):
+    """Un WeightEntry puede existir sin que exista un Profile: se carga desde
+    Progreso, que no depende de que la pantalla de Perfil se haya usado."""
+    db_session.add(WeightEntry(user_id=USUARIO, kg=91.0))
+    db_session.commit()
+
+    resuelto = servicio.resolver(db_session, USUARIO)
+
+    assert resuelto.perfil is None
+    assert resuelto.peso_kg == 91.0
+    assert resuelto.completo is False
 
 
 @pytest.mark.parametrize(

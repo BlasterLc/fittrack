@@ -156,7 +156,6 @@ class Profile(Base):
     # la meta calculada con un dato viejo.
     fecha_nacimiento: Mapped[date | None] = mapped_column(Date, nullable=True)
     altura_cm: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    peso_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
     # "poco", "moderado" o "alto".
     actividad: Mapped[str | None] = mapped_column(String(10), nullable=True)
     # "bajar", "mantener" o "ganar".
