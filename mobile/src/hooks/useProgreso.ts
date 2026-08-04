@@ -1,5 +1,5 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { apiGet } from '@/lib/api';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiDelete, apiGet, apiPost } from '@/lib/api';
 
 export type DiaEntrenado = { started_at: string; minutos: number };
 export type SeriesDeGrupo = { grupo: string; series: number };
@@ -135,5 +135,52 @@ export function useProgresionEjercicio(catalogId: string) {
       ),
     getNextPageParam: (ultima) =>
       ultima.length < LIMITE_PROGRESION ? undefined : ultima[ultima.length - 1].started_at,
+  });
+}
+
+export type RegistroPeso = { id: number; kg: number; recorded_at: string };
+
+/** Cuántos registros trae cada página del historial de peso. */
+const LIMITE_PESO = 12;
+
+/**
+ * El historial de peso, paginado hacia atrás por cursor. Misma forma que
+ * `useProgresionEjercicio`: la ventana es por CANTIDAD de registros, no por
+ * calendario, porque se permiten varios registros el mismo día.
+ */
+export function useHistorialPeso() {
+  return useInfiniteQuery({
+    queryKey: ['progreso', 'peso'],
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam }) =>
+      apiGet<RegistroPeso[]>(
+        `/api/weight?limite=${LIMITE_PESO}` +
+          (pageParam ? `&hasta=${encodeURIComponent(pageParam)}` : ''),
+      ),
+    getNextPageParam: (ultima) =>
+      ultima.length < LIMITE_PESO ? undefined : ultima[ultima.length - 1].recorded_at,
+  });
+}
+
+export function useRegistrarPeso() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (kg: number) => apiPost<RegistroPeso>('/api/weight', { kg }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['progreso', 'peso'] });
+      // El perfil muestra el peso actual y puede recalcular metas con él.
+      queryClient.invalidateQueries({ queryKey: ['perfil'] });
+    },
+  });
+}
+
+export function useBorrarPeso() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => apiDelete(`/api/weight/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['progreso', 'peso'] });
+      queryClient.invalidateQueries({ queryKey: ['perfil'] });
+    },
   });
 }
