@@ -32,7 +32,7 @@ def _armar_respuesta(resuelto: servicio.PerfilResuelto) -> PerfilOut:
         sexo=perfil.sexo if perfil else None,
         fecha_nacimiento=perfil.fecha_nacimiento if perfil else None,
         altura_cm=perfil.altura_cm if perfil else None,
-        peso_kg=perfil.peso_kg if perfil else None,
+        peso_kg=resuelto.peso_kg,
         actividad=perfil.actividad if perfil else None,
         objetivo=perfil.objetivo if perfil else None,
         completo=resuelto.completo,

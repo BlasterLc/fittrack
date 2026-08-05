@@ -94,6 +94,13 @@ export async function apiDelete(path: string): Promise<void> {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
   if (!respuesta.ok) {
-    throw new Error(`Error ${respuesta.status} al pedir ${path}`);
+    let detalle = `Error ${respuesta.status} al pedir ${path}`;
+    try {
+      const cuerpo = await respuesta.json();
+      if (cuerpo?.detail) detalle = cuerpo.detail;
+    } catch {
+      // sin cuerpo JSON; se queda el mensaje genérico
+    }
+    throw new Error(detalle);
   }
 }

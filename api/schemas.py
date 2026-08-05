@@ -310,3 +310,17 @@ class SesionDeProgresion(BaseModel):
 
     started_at: datetime
     max_weight_kg: float
+
+
+class RegistroPeso(BaseModel):
+    """Un registro del historial de peso."""
+
+    id: int
+    kg: float
+    recorded_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class CrearRegistroPesoRequest(BaseModel):
+    kg: float

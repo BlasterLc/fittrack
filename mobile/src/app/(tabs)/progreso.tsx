@@ -4,7 +4,8 @@ import { EncabezadoPantalla } from '@/components/EncabezadoPantalla';
 import { MapaAsistencia } from '@/components/MapaAsistencia';
 import { SeriesPorGrupo } from '@/components/SeriesPorGrupo';
 import { HistorialEntrenamientos } from '@/components/HistorialEntrenamientos';
-import { useMapa, useSeriesPorGrupo, useHistorial } from '@/hooks/useProgreso';
+import { HistorialPeso } from '@/components/HistorialPeso';
+import { useMapa, useSeriesPorGrupo, useHistorial, useHistorialPeso } from '@/hooks/useProgreso';
 import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
 
 /**
@@ -39,14 +40,21 @@ export default function Progreso() {
   const mapa = useMapa();
   const grupos = useSeriesPorGrupo();
   const historial = useHistorial();
+  // Se pide acá solo para sumar al refresco conjunto: comparte caché con la
+  // instancia de adentro de HistorialPeso (misma queryKey), que es la que
+  // realmente maneja su carga y error — por eso no pasa por <Bloque> como
+  // los otros tres, GraficoPeso ya resuelve su propio esqueleto.
+  const peso = useHistorialPeso();
 
-  // Refresca los tres en paralelo: no hay dependencia entre ellos y esperar
+  // Refresca los cuatro en paralelo: no hay dependencia entre ellos y esperar
   // uno para pedir el siguiente solo alargaría el gesto sin motivo.
-  const refrescando = mapa.isRefetching || grupos.isRefetching || historial.isRefetching;
+  const refrescando =
+    mapa.isRefetching || grupos.isRefetching || historial.isRefetching || peso.isRefetching;
   const refrescar = () => {
     mapa.refetch();
     grupos.refetch();
     historial.refetch();
+    peso.refetch();
   };
 
   return (
@@ -74,6 +82,8 @@ export default function Progreso() {
             onVerMas={() => historial.fetchNextPage()}
           />
         </Bloque>
+
+        <HistorialPeso />
       </ScrollView>
     </SafeAreaView>
   );

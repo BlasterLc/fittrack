@@ -5,6 +5,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -156,7 +157,6 @@ class Profile(Base):
     # la meta calculada con un dato viejo.
     fecha_nacimiento: Mapped[date | None] = mapped_column(Date, nullable=True)
     altura_cm: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    peso_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
     # "poco", "moderado" o "alto".
     actividad: Mapped[str | None] = mapped_column(String(10), nullable=True)
     # "bajar", "mantener" o "ganar".
@@ -171,6 +171,26 @@ class Profile(Base):
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class WeightEntry(Base):
+    """Un registro de peso corporal. Aislado por user_id (= auth.users.id, sin FK).
+
+    Se permiten varios registros por día: no hay deduplicación, cada uno
+    guarda su propio `recorded_at`. El "peso actual" que usa el cálculo de
+    metas (ver services/perfil.py) es el registro más reciente, no un campo
+    aparte de `Profile`.
+    """
+
+    __tablename__ = "weight_entries"
+    __table_args__ = (Index("ix_weight_entries_user_id_recorded_at", "user_id", "recorded_at"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    kg: Mapped[float] = mapped_column(Float, nullable=False)
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
 
