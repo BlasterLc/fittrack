@@ -23,7 +23,14 @@ export function HistorialPeso() {
   function confirmarBorrar(registro: RegistroPeso) {
     Alert.alert('Eliminar registro', '¿Seguro que quieres eliminar este registro de peso?', [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: () => borrar.mutate(registro.id) },
+      {
+        text: 'Eliminar',
+        style: 'destructive',
+        onPress: () =>
+          borrar.mutate(registro.id, {
+            onError: (e) => Alert.alert('No se pudo eliminar', (e as Error).message),
+          }),
+      },
     ]);
   }
 
@@ -62,7 +69,7 @@ export function HistorialPeso() {
           </Text>
           <View style={styles.filaAcciones}>
             <Text style={styles.filaKg}>{formatoKg(r.kg)} kg</Text>
-            <Pressable onPress={() => confirmarBorrar(r)} hitSlop={8}>
+            <Pressable style={styles.eliminarBoton} onPress={() => confirmarBorrar(r)}>
               <Text style={styles.eliminar}>Eliminar</Text>
             </Pressable>
           </View>
@@ -119,6 +126,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.base,
     fontVariant: ['tabular-nums'],
   },
+  eliminarBoton: { minHeight: 48, paddingHorizontal: spacing.xs, justifyContent: 'center' },
   eliminar: { color: colors.danger, fontFamily: fonts.medium, fontSize: fontSize.base },
   masAntiguos: {
     minHeight: 48,

@@ -28,6 +28,7 @@ export function GraficoProgresion({ catalogId }: { catalogId: string }) {
       accessibilityLabel={`Progresión: ${sesiones.length} sesiones, de ${formatoKg(minimo)} a ${formatoKg(maximo)} kg`}
       cargando={progresion.isPending}
       error={progresion.isError}
+      errorTexto="No pudimos cargar la progresión"
       vacioTexto="Sin registros todavía"
       hasNextPage={progresion.hasNextPage}
       isFetchingNextPage={progresion.isFetchingNextPage}

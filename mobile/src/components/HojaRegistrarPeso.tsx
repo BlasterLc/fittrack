@@ -86,6 +86,7 @@ const styles = StyleSheet.create({
   filaBotones: { flexDirection: 'row', gap: spacing.md },
   boton: {
     flex: 1,
+    minHeight: 48,
     borderRadius: 10,
     paddingVertical: spacing.md,
     alignItems: 'center',

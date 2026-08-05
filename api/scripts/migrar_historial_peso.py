@@ -9,8 +9,10 @@ columna vieja con `ALTER TABLE profiles DROP COLUMN peso_kg`. El modelo
 `Profile` de este código ya no tiene `peso_kg` como atributo, así que la
 lectura es SQL crudo, no ORM.
 
-Idempotente: si el usuario ya tiene algún registro en `weight_entries`, se
-salta. Correrlo dos veces no duplica datos.
+Idempotente por (user_id, recorded_at), no por usuario: si alguien ya cargó
+un peso nuevo entre el deploy y el backfill, ese registro nuevo no bloquea la
+migración del valor viejo, que tiene su propio `recorded_at` (el `updated_at`
+de `profiles`). Correrlo dos veces no duplica datos.
 """
 
 from sqlalchemy import text
@@ -29,8 +31,11 @@ def migrar(sesion: Session) -> int:
     migrados = 0
     for user_id, peso_kg, updated_at in filas:
         ya_tiene = sesion.execute(
-            text("SELECT 1 FROM weight_entries WHERE user_id = :user_id LIMIT 1"),
-            {"user_id": user_id},
+            text(
+                "SELECT 1 FROM weight_entries "
+                "WHERE user_id = :user_id AND recorded_at = :recorded_at LIMIT 1"
+            ),
+            {"user_id": user_id, "recorded_at": updated_at},
         ).first()
         if ya_tiene is not None:
             continue

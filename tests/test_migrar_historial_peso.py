@@ -48,8 +48,8 @@ def test_migrar_ignora_perfiles_sin_peso(db_session):
 
 
 def test_migrar_es_idempotente(db_session):
-    """Correrlo dos veces no duplica: si el usuario ya tiene algún registro
-    en weight_entries, se salta."""
+    """Correrlo dos veces no duplica: la segunda pasada encuentra el mismo
+    (user_id, recorded_at) que ya insertó la primera y lo salta."""
     _agregar_columna_vieja(db_session)
     _crear_perfil_con_peso_viejo(db_session, "u1", 78.0)
 
@@ -58,3 +58,22 @@ def test_migrar_es_idempotente(db_session):
 
     assert segunda_pasada == 0
     assert db_session.query(WeightEntry).filter_by(user_id="u1").count() == 1
+
+
+def test_migrar_no_se_salta_un_usuario_que_ya_cargo_un_peso_nuevo(db_session):
+    """Si alguien registra un peso desde la Progreso ya desplegada (Task 2 en
+    producción) antes de que corra el backfill (paso 3 del runbook), ese
+    registro nuevo no puede tapar la migración del valor viejo: son
+    `recorded_at` distintos, así que el chequeo de idempotencia por
+    (user_id, recorded_at) no los confunde."""
+    _agregar_columna_vieja(db_session)
+    _crear_perfil_con_peso_viejo(db_session, "u1", 78.0)
+    db_session.add(WeightEntry(user_id="u1", kg=80.0))
+    db_session.commit()
+
+    migrados = migrar(db_session)
+
+    assert migrados == 1
+    assert db_session.query(WeightEntry).filter_by(user_id="u1").count() == 2
+    pesos = {r.kg for r in db_session.query(WeightEntry).filter_by(user_id="u1")}
+    assert pesos == {78.0, 80.0}

@@ -170,6 +170,8 @@ export function useRegistrarPeso() {
       queryClient.invalidateQueries({ queryKey: ['progreso', 'peso'] });
       // El perfil muestra el peso actual y puede recalcular metas con él.
       queryClient.invalidateQueries({ queryKey: ['perfil'] });
+      // El dashboard muestra la meta de calorías, que depende del peso.
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
@@ -181,6 +183,7 @@ export function useBorrarPeso() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['progreso', 'peso'] });
       queryClient.invalidateQueries({ queryKey: ['perfil'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }

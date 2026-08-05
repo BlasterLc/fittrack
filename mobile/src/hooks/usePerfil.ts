@@ -19,6 +19,9 @@ export function useGuardarPerfil() {
       cliente.setQueryData(['perfil'], perfil);
       // El dashboard muestra la meta de calorías, así que cambió.
       cliente.invalidateQueries({ queryKey: ['dashboard'] });
+      // Un peso nuevo desde Perfil crea un registro en el historial (ver
+      // services/perfil.py): Progreso tiene que verlo sin esperar un remount.
+      cliente.invalidateQueries({ queryKey: ['progreso', 'peso'] });
     },
   });
 }

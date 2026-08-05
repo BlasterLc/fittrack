@@ -40,6 +40,7 @@ export function GraficoLineas({
   accessibilityLabel,
   cargando,
   error,
+  errorTexto,
   vacioTexto,
   hasNextPage,
   isFetchingNextPage,
@@ -54,6 +55,7 @@ export function GraficoLineas({
   accessibilityLabel: string;
   cargando: boolean;
   error: boolean;
+  errorTexto: string;
   vacioTexto: string;
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
@@ -96,7 +98,7 @@ export function GraficoLineas({
     return (
       <View style={styles.bloque}>
         <Text style={styles.titulo}>{titulo}</Text>
-        <Text style={styles.vacio}>No pudimos cargar el gráfico</Text>
+        <Text style={styles.vacio}>{errorTexto}</Text>
         <Pressable style={styles.reintentar} onPress={onReintentar} accessibilityRole="button">
           <Text style={styles.reintentarTexto}>Reintentar</Text>
         </Pressable>

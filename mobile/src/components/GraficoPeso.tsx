@@ -36,6 +36,7 @@ export function GraficoPeso({
       accessibilityLabel={`Peso: ${registros.length} registros, de ${formatoKg(minimo)} a ${formatoKg(maximo)} kg`}
       cargando={cargando}
       error={error}
+      errorTexto="No pudimos cargar el historial de peso"
       vacioTexto="Sin registros de peso todavía"
       hasNextPage={hasNextPage}
       isFetchingNextPage={isFetchingNextPage}

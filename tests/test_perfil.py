@@ -207,6 +207,34 @@ def test_peso_registrado_sin_perfil_aparece_en_el_resuelto(db_session):
     assert resuelto.completo is False
 
 
+def test_resolver_no_muestra_el_peso_de_otro_usuario(db_session):
+    db_session.add(WeightEntry(user_id=OTRO_USUARIO, kg=99.0))
+    db_session.commit()
+
+    assert servicio.resolver(db_session, USUARIO).peso_kg is None
+
+
+def test_resolver_usa_el_registro_mas_reciente_cuando_hay_varios(db_session):
+    db_session.add(WeightEntry(user_id=USUARIO, kg=80.0))
+    db_session.commit()
+    db_session.add(WeightEntry(user_id=USUARIO, kg=78.0))
+    db_session.commit()
+
+    assert servicio.resolver(db_session, USUARIO).peso_kg == 78.0
+
+
+def test_perfil_completo_sin_ningun_registro_de_peso_no_tiene_metas(db_session):
+    """Las cinco medidas del cálculo pueden estar completas sin que exista
+    NUNCA un WeightEntry: peso es el único de los seis datos que no vive en
+    `Profile`, así que `completo` tiene que seguir dependiendo de él."""
+    servicio.guardar(db_session, USUARIO, {**DATOS_COMPLETOS, "peso_kg": None})
+
+    resuelto = servicio.resolver(db_session, USUARIO)
+
+    assert resuelto.completo is False
+    assert resuelto.metas is None
+
+
 @pytest.mark.parametrize(
     "campo, valor",
     [
