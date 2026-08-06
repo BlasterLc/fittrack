@@ -193,7 +193,7 @@ def test_heatmap_ventana_de_un_instante_no_es_invalida(client, auth_headers):
     assert respuesta.status_code == 200
 
 
-def _crear_ficha(db_session, catalog_id, grupo):
+def _crear_ficha(db_session, catalog_id, grupo, target_es="Pectorales"):
     db_session.add(
         CatalogExercise(
             id=catalog_id,
@@ -205,7 +205,7 @@ def _crear_ficha(db_session, catalog_id, grupo):
             equipment="barbell",
             equipment_es="Barra",
             target="pectorals",
-            target_es="Pectorales",
+            target_es=target_es,
             secondary_muscles=[],
             secondary_muscles_es=[],
             instrucciones_es=[],
@@ -295,6 +295,20 @@ def test_series_por_grupo_ignora_a_otros_usuarios(client, auth_headers, db_sessi
     ).json()
 
     assert cuerpo == [{"grupo": "Espalda", "series": 3}]
+
+
+def test_series_por_grupo_separa_biceps_de_triceps(client, auth_headers, db_session):
+    _crear_ficha(db_session, "0001", "Brazos", target_es="Bíceps")
+    _crear_ficha(db_session, "0002", "Brazos", target_es="Tríceps")
+    _crear_entrenamiento(db_session, YO, BASE, minutos=30, catalog_id="0001", series=3)
+    _crear_entrenamiento(db_session, YO, BASE, minutos=20, catalog_id="0002", series=2)
+
+    cuerpo = client.get(
+        "/api/progress/sets-by-muscle", params=_ventana_ancha(), headers=auth_headers
+    ).json()
+
+    por_grupo = {f["grupo"]: f["series"] for f in cuerpo}
+    assert por_grupo == {"Bíceps": 3, "Tríceps": 2}
 
 
 def test_series_de_una_sesion_que_cruza_la_medianoche_cuentan_donde_empezo(

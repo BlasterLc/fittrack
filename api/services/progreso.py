@@ -10,7 +10,7 @@ huso del usuario.
 
 from datetime import datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from api.models import CatalogExercise, Workout, WorkoutExercise, WorkoutSet
@@ -61,10 +61,11 @@ def series_por_grupo(
 ) -> list[dict]:
     """Series por grupo muscular primario en la ventana.
 
-    Cuenta SOLO `body_part_es`, el primario. Los secundarios usan otro
-    vocabulario ("Bíceps", "Flexores de cadera") que no coincide con los diez
-    grupos, así que sumarlos exigiría una tabla de mapeo escrita a mano y
-    acreditaría grupos que no se entrenaron.
+    Cuenta `body_part_es`, salvo dentro de "Brazos": ahí se separa por
+    `target_es` ("Bíceps"/"Tríceps", los únicos dos valores que trae ese
+    grupo en el catálogo), porque juntarlos tapa qué músculo del brazo se
+    entrenó de verdad. El resto de los grupos sigue con `body_part_es`: sus
+    `target_es` usan otro vocabulario que no vale la pena traducir todavía.
 
     El recorte va por el `started_at` del ENTRENAMIENTO, no por el
     `completed_at` de cada serie: una sesión pertenece a la semana en que
@@ -75,8 +76,13 @@ def series_por_grupo(
     """
     _validar(desde, hasta)
 
+    clave_grupo = case(
+        (CatalogExercise.body_part_es == "Brazos", CatalogExercise.target_es),
+        else_=CatalogExercise.body_part_es,
+    )
+
     filas = sesion.execute(
-        select(CatalogExercise.body_part_es, func.count(WorkoutSet.id))
+        select(clave_grupo, func.count(WorkoutSet.id))
         .select_from(WorkoutSet)
         .join(WorkoutExercise, WorkoutSet.workout_exercise_id == WorkoutExercise.id)
         .join(Workout, WorkoutExercise.workout_id == Workout.id)
@@ -86,7 +92,7 @@ def series_por_grupo(
             Workout.started_at >= desde,
             Workout.started_at < hasta,
         )
-        .group_by(CatalogExercise.body_part_es)
+        .group_by(clave_grupo)
     ).all()
 
     return [
