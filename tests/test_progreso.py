@@ -298,17 +298,21 @@ def test_series_por_grupo_ignora_a_otros_usuarios(client, auth_headers, db_sessi
 
 
 def test_series_por_grupo_separa_biceps_de_triceps(client, auth_headers, db_session):
+    # Junto una ficha que no es de Brazos en la misma consulta: la rama sin
+    # separar del CASE tiene que seguir agrupando por body_part_es de siempre.
     _crear_ficha(db_session, "0001", "Brazos", target_es="Bíceps")
     _crear_ficha(db_session, "0002", "Brazos", target_es="Tríceps")
+    _crear_ficha(db_session, "0003", "Pecho")
     _crear_entrenamiento(db_session, YO, BASE, minutos=30, catalog_id="0001", series=3)
     _crear_entrenamiento(db_session, YO, BASE, minutos=20, catalog_id="0002", series=2)
+    _crear_entrenamiento(db_session, YO, BASE, minutos=25, catalog_id="0003", series=4)
 
     cuerpo = client.get(
         "/api/progress/sets-by-muscle", params=_ventana_ancha(), headers=auth_headers
     ).json()
 
     por_grupo = {f["grupo"]: f["series"] for f in cuerpo}
-    assert por_grupo == {"Bíceps": 3, "Tríceps": 2}
+    assert por_grupo == {"Bíceps": 3, "Tríceps": 2, "Pecho": 4}
 
 
 def test_series_de_una_sesion_que_cruza_la_medianoche_cuentan_donde_empezo(

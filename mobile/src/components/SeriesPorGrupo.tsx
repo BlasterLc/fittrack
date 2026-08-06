@@ -27,8 +27,8 @@ const ESCALA = OBJETIVO_MAX + 5; // margen sobre el objetivo, el ancho completo 
 export function SeriesPorGrupo({ grupos }: { grupos: SeriesDeGrupo[] }) {
   const porGrupo = new Map(grupos.map((g) => [g.grupo, g.series]));
 
-  // Los ocho de siempre, más los que llegaron con series y no están en la lista
-  // fija (Cardio, Cuello y «Sin clasificar», que solo aparece si hay).
+  // Los nueve de siempre, más los que llegaron con series y no están en la
+  // lista fija (Cardio, Cuello y «Sin clasificar», que solo aparece si hay).
   const extras = grupos
     .filter((g) => !GRUPOS.includes(g.grupo as (typeof GRUPOS)[number]) && g.series > 0)
     .map((g) => g.grupo);
