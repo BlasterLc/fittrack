@@ -1,7 +1,7 @@
 import datetime as dt
 import uuid
 
-from api.models import CatalogExercise, Workout, WorkoutExercise, WorkoutSet
+from api.models import CatalogExercise, Meal, MealItem, WeightEntry, Workout, WorkoutExercise, WorkoutSet
 
 YO = "11111111-1111-1111-1111-111111111111"
 
@@ -622,3 +622,205 @@ def test_exercise_progresion_encadena_dos_paginas_sin_duplicar(
 
     todos = [s["started_at"] for s in primera] + [s["started_at"] for s in segunda]
     assert len(todos) == len(set(todos))
+
+
+def _crear_comida(db_session, user_id, cuando, calorias, prot_g, carbs_g, fat_g):
+    comida = Meal(user_id=user_id, logged_at=cuando)
+    comida.items = [
+        MealItem(nombre="X", calorias=calorias, prot_g=prot_g, carbs_g=carbs_g, fat_g=fat_g)
+    ]
+    db_session.add(comida)
+    db_session.commit()
+
+
+def _crear_peso(db_session, user_id, cuando, kg):
+    db_session.add(WeightEntry(user_id=user_id, kg=kg, recorded_at=cuando))
+    db_session.commit()
+
+
+def _ventana_dos_dias():
+    return {
+        "desde": (BASE - dt.timedelta(days=1)).isoformat(),
+        "hasta": (BASE + dt.timedelta(days=1)).isoformat(),
+    }
+
+
+def test_export_sin_token_devuelve_401(client):
+    respuesta = client.get("/api/progress/export")
+    assert respuesta.status_code == 401
+
+
+def test_export_rechaza_ventana_al_reves(client, auth_headers):
+    respuesta = client.get(
+        "/api/progress/export",
+        params={
+            "desde": (BASE + dt.timedelta(days=1)).isoformat(),
+            "hasta": BASE.isoformat(),
+        },
+        headers=auth_headers,
+    )
+    assert respuesta.status_code == 422
+
+
+def test_export_periodo_sin_datos_devuelve_nulos_y_listas_vacias(client, auth_headers):
+    cuerpo = client.get(
+        "/api/progress/export", params=_ventana_dos_dias(), headers=auth_headers
+    ).json()
+
+    assert cuerpo["entrenamiento"]["duracion_promedio_min"] is None
+    assert cuerpo["entrenamiento"]["series_por_grupo"] == []
+    assert cuerpo["entrenamiento"]["sesiones"] == []
+    assert cuerpo["comida"]["promedio_calorias"] is None
+    assert cuerpo["comida"]["promedio_prot_g"] is None
+    assert cuerpo["comida"]["comidas"] == []
+    assert cuerpo["peso"]["inicial_kg"] is None
+    assert cuerpo["peso"]["final_kg"] is None
+    assert cuerpo["peso"]["tendencia_kg"] is None
+    assert cuerpo["peso"]["registros"] == []
+
+
+def test_export_agrega_entrenamiento_de_la_ventana(client, auth_headers, db_session):
+    _crear_ficha(db_session, "0001", "Espalda")
+    _crear_ficha(db_session, "0002", "Pecho")
+    _crear_entrenamiento(db_session, YO, BASE, minutos=48, catalog_id="0001", series=3)
+    _crear_entrenamiento(
+        db_session, YO, BASE - dt.timedelta(hours=5), minutos=30, catalog_id="0002", series=2
+    )
+
+    cuerpo = client.get(
+        "/api/progress/export", params=_ventana_dos_dias(), headers=auth_headers
+    ).json()
+
+    entrenamiento = cuerpo["entrenamiento"]
+    assert entrenamiento["duracion_promedio_min"] == 39.0
+    por_grupo = {f["grupo"]: f["series"] for f in entrenamiento["series_por_grupo"]}
+    assert por_grupo == {"Espalda": 3, "Pecho": 2}
+    assert len(entrenamiento["sesiones"]) == 2
+    # Orden cronológico: la de hace 5 horas va primero.
+    assert entrenamiento["sesiones"][0]["duracion_min"] == 30
+    assert entrenamiento["sesiones"][0]["series_totales"] == 2
+    assert entrenamiento["sesiones"][0]["grupos"] == ["Pecho"]
+    assert entrenamiento["sesiones"][1]["duracion_min"] == 48
+    assert entrenamiento["sesiones"][1]["grupos"] == ["Espalda"]
+
+
+def test_export_promedia_calorias_y_macros_sobre_los_dias_de_la_ventana(
+    client, auth_headers, db_session
+):
+    """La ventana de esta prueba son 2 días exactos y hay 3 comidas: si el
+    promedio se calculara dividiendo por la CANTIDAD de comidas en vez de por
+    los días de la ventana, este test tiene que notarlo (600/2=300 contra
+    600/3=200)."""
+    _crear_comida(db_session, YO, BASE, calorias=300, prot_g=10, carbs_g=20, fat_g=5)
+    _crear_comida(
+        db_session, YO, BASE - dt.timedelta(hours=3), calorias=200, prot_g=5, carbs_g=10, fat_g=2
+    )
+    _crear_comida(
+        db_session, YO, BASE - dt.timedelta(hours=20), calorias=100, prot_g=5, carbs_g=5, fat_g=1
+    )
+
+    cuerpo = client.get(
+        "/api/progress/export", params=_ventana_dos_dias(), headers=auth_headers
+    ).json()
+
+    comida = cuerpo["comida"]
+    assert comida["promedio_calorias"] == 300.0
+    assert comida["promedio_prot_g"] == 10.0
+    assert comida["promedio_carbs_g"] == 17.5
+    assert comida["promedio_fat_g"] == 4.0
+    assert len(comida["comidas"]) == 3
+
+
+def test_export_usa_la_meta_del_perfil_si_existe(client, auth_headers, db_session):
+    from api.services import perfil as servicio_perfil
+
+    servicio_perfil.guardar(
+        db_session,
+        YO,
+        {
+            "nombre": "Matías",
+            "sexo": "hombre",
+            "fecha_nacimiento": dt.date(1998, 3, 14),
+            "altura_cm": 176,
+            "peso_kg": 78.0,
+            "actividad": "moderado",
+            "objetivo": "ganar",
+        },
+    )
+
+    cuerpo = client.get(
+        "/api/progress/export", params=_ventana_dos_dias(), headers=auth_headers
+    ).json()
+
+    assert cuerpo["comida"]["meta_calorias"] > 0
+    assert cuerpo["comida"]["metas_macros"] is not None
+
+
+def test_export_sin_perfil_cae_a_la_meta_generica(client, auth_headers, monkeypatch):
+    monkeypatch.setenv("CALORIE_GOAL", "2200")
+
+    cuerpo = client.get(
+        "/api/progress/export", params=_ventana_dos_dias(), headers=auth_headers
+    ).json()
+
+    assert cuerpo["comida"]["meta_calorias"] == 2200
+    assert cuerpo["comida"]["metas_macros"] is None
+
+
+def test_export_calcula_inicial_final_y_tendencia_del_peso(client, auth_headers, db_session):
+    _crear_peso(db_session, YO, BASE - dt.timedelta(hours=20), kg=78.5)
+    _crear_peso(db_session, YO, BASE, kg=78.0)
+    _crear_peso(db_session, YO, BASE + dt.timedelta(hours=5), kg=77.6)
+
+    cuerpo = client.get(
+        "/api/progress/export", params=_ventana_dos_dias(), headers=auth_headers
+    ).json()
+
+    peso = cuerpo["peso"]
+    assert peso["inicial_kg"] == 78.5
+    assert peso["final_kg"] == 77.6
+    assert round(peso["tendencia_kg"], 1) == -0.9
+    assert len(peso["registros"]) == 3
+    # Orden cronológico, al revés de /api/weight (que pagina del más nuevo).
+    assert peso["registros"][0]["kg"] == 78.5
+    assert peso["registros"][2]["kg"] == 77.6
+
+
+def test_export_excluye_datos_fuera_de_la_ventana(client, auth_headers, db_session):
+    """Los tres bloques recortan por `desde`/`hasta`, no traen todo el historial."""
+    _crear_ficha(db_session, "0001", "Espalda")
+    fuera = BASE - dt.timedelta(days=5)
+    _crear_entrenamiento(db_session, YO, fuera, minutos=48, catalog_id="0001", series=3)
+    _crear_comida(db_session, YO, fuera, calorias=300, prot_g=10, carbs_g=20, fat_g=5)
+    _crear_peso(db_session, YO, fuera, kg=80.0)
+
+    cuerpo = client.get(
+        "/api/progress/export", params=_ventana_dos_dias(), headers=auth_headers
+    ).json()
+
+    assert cuerpo["entrenamiento"]["sesiones"] == []
+    assert cuerpo["comida"]["comidas"] == []
+    assert cuerpo["peso"]["registros"] == []
+
+
+def test_export_ignora_datos_de_otros_usuarios(client, auth_headers, db_session):
+    _crear_ficha(db_session, "0001", "Espalda")
+    _crear_entrenamiento(db_session, YO, BASE, minutos=48, catalog_id="0001", series=3)
+    _crear_entrenamiento(
+        db_session, "otro-usuario", BASE, minutos=99, catalog_id="0001", series=9
+    )
+    _crear_comida(db_session, YO, BASE, calorias=300, prot_g=10, carbs_g=20, fat_g=5)
+    _crear_comida(db_session, "otro-usuario", BASE, calorias=999, prot_g=1, carbs_g=1, fat_g=1)
+    _crear_peso(db_session, YO, BASE, kg=78.0)
+    _crear_peso(db_session, "otro-usuario", BASE, kg=200.0)
+
+    cuerpo = client.get(
+        "/api/progress/export", params=_ventana_dos_dias(), headers=auth_headers
+    ).json()
+
+    assert len(cuerpo["entrenamiento"]["sesiones"]) == 1
+    assert cuerpo["entrenamiento"]["sesiones"][0]["duracion_min"] == 48
+    assert len(cuerpo["comida"]["comidas"]) == 1
+    assert cuerpo["comida"]["comidas"][0]["calorias"] == 300
+    assert len(cuerpo["peso"]["registros"]) == 1
+    assert cuerpo["peso"]["registros"][0]["kg"] == 78.0

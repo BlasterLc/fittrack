@@ -324,3 +324,56 @@ class RegistroPeso(BaseModel):
 
 class CrearRegistroPesoRequest(BaseModel):
     kg: float
+
+
+class SesionExportable(BaseModel):
+    """Una sesión de entrenamiento dentro del resumen exportable."""
+
+    started_at: datetime
+    duracion_min: int
+    series_totales: int
+    grupos: list[str]
+
+
+class EntrenamientoExportable(BaseModel):
+    # None si no hubo ninguna sesión en la ventana.
+    duracion_promedio_min: float | None
+    series_por_grupo: list[SeriesDeGrupo]
+    sesiones: list[SesionExportable]
+
+
+class ComidaExportableItem(BaseModel):
+    """Una comida (ya sumados sus ítems), para que el cliente la agrupe por día."""
+
+    logged_at: datetime
+    calorias: int
+    prot_g: float
+    carbs_g: float
+    fat_g: float
+
+
+class ComidaExportable(BaseModel):
+    meta_calorias: int
+    metas_macros: MetasMacros | None
+    # None (no cero) cuando no hubo ninguna comida en la ventana: un cero
+    # sugeriría "comiste 0 calorías", que es un dato distinto de "sin datos".
+    promedio_calorias: float | None
+    promedio_prot_g: float | None
+    promedio_carbs_g: float | None
+    promedio_fat_g: float | None
+    comidas: list[ComidaExportableItem]
+
+
+class PesoExportable(BaseModel):
+    inicial_kg: float | None
+    final_kg: float | None
+    tendencia_kg: float | None
+    registros: list[RegistroPeso]
+
+
+class ResumenExportable(BaseModel):
+    desde: datetime
+    hasta: datetime
+    entrenamiento: EntrenamientoExportable
+    comida: ComidaExportable
+    peso: PesoExportable

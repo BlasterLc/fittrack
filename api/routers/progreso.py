@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from api.auth import get_current_user
 from api.database import get_db
-from api.schemas import DiaEntrenado, SeriesDeGrupo, SesionDeProgresion
+from api.schemas import DiaEntrenado, ResumenExportable, SeriesDeGrupo, SesionDeProgresion
 from api.services import progreso as servicio
 
 router = APIRouter(
@@ -57,3 +57,19 @@ def progresion_ejercicio(
 ) -> list[dict]:
     """El peso máximo levantado por sesión, para el gráfico de progresión."""
     return servicio.progresion_ejercicio(db, user_id, catalog_id, limite, hasta)
+
+
+@router.get("/export", response_model=ResumenExportable)
+def exportar(
+    desde: datetime,
+    hasta: datetime,
+    user_id: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """El resumen completo de la ventana, para exportar a PDF."""
+    try:
+        return servicio.resumen_exportable(db, user_id, desde, hasta)
+    except servicio.VentanaInvalida as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)
+        ) from error
