@@ -5,6 +5,7 @@ import { MapaAsistencia } from '@/components/MapaAsistencia';
 import { SeriesPorGrupo } from '@/components/SeriesPorGrupo';
 import { HistorialEntrenamientos } from '@/components/HistorialEntrenamientos';
 import { HistorialPeso } from '@/components/HistorialPeso';
+import { BotonExportarResumen } from '@/components/BotonExportarResumen';
 import { useMapa, useSeriesPorGrupo, useHistorial, useHistorialPeso } from '@/hooks/useProgreso';
 import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
 
@@ -64,6 +65,8 @@ export default function Progreso() {
         contentContainerStyle={styles.cuerpo}
         refreshControl={<RefreshControl refreshing={refrescando} onRefresh={refrescar} />}
       >
+        <BotonExportarResumen />
+
         <Bloque cargando={mapa.isPending} error={mapa.isError}>
           <MapaAsistencia dias={mapa.data ?? []} />
         </Bloque>
