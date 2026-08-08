@@ -7,9 +7,9 @@ export function BotonExportarResumen() {
 
   function elegirPeriodo() {
     Alert.alert('Exportar resumen', 'Elige el período que quieres exportar', [
+      { text: 'Cancelar', style: 'cancel' },
       { text: 'Última semana', onPress: () => exportar(7) },
       { text: 'Último mes', onPress: () => exportar(30) },
-      { text: 'Cancelar', style: 'cancel' },
     ]);
   }
 

@@ -38,7 +38,8 @@ export function useExportarResumen() {
         dialogTitle: 'Compartir resumen',
       });
     } catch (e) {
-      setError((e as Error).message);
+      console.warn('No se pudo exportar el resumen', e);
+      setError('No pudimos generar el resumen. Intenta de nuevo.');
     } finally {
       setGenerando(false);
     }

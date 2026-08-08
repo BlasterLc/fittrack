@@ -66,6 +66,19 @@ def mapa(sesion: Session, user_id: str, desde: datetime, hasta: datetime) -> lis
 SIN_CLASIFICAR = "Sin clasificar"
 
 
+def _clave_grupo():
+    """La columna por la que se agrupa: `body_part_es`, salvo dentro de
+    "Brazos", donde se separa por `target_es` (Bíceps/Tríceps). Un solo lugar
+    para esta regla: usada tanto por `series_por_grupo` como por el resumen
+    exportable, para que las dos partes de un mismo PDF no se contradigan
+    sobre a qué grupo pertenece un ejercicio de brazo.
+    """
+    return case(
+        (CatalogExercise.body_part_es == "Brazos", CatalogExercise.target_es),
+        else_=CatalogExercise.body_part_es,
+    )
+
+
 def series_por_grupo(
     sesion: Session, user_id: str, desde: datetime, hasta: datetime
 ) -> list[dict]:
@@ -86,10 +99,7 @@ def series_por_grupo(
     """
     _validar(desde, hasta)
 
-    clave_grupo = case(
-        (CatalogExercise.body_part_es == "Brazos", CatalogExercise.target_es),
-        else_=CatalogExercise.body_part_es,
-    )
+    clave_grupo = _clave_grupo()
 
     filas = sesion.execute(
         select(clave_grupo, func.count(WorkoutSet.id))
@@ -175,7 +185,7 @@ def _entrenamiento_exportable(
     grupo_por_catalogo = (
         dict(
             sesion.execute(
-                select(CatalogExercise.id, CatalogExercise.body_part_es).where(
+                select(CatalogExercise.id, _clave_grupo()).where(
                     CatalogExercise.id.in_(ids_catalogo)
                 )
             ).all()

@@ -672,6 +672,8 @@ def test_export_periodo_sin_datos_devuelve_nulos_y_listas_vacias(client, auth_he
     assert cuerpo["entrenamiento"]["sesiones"] == []
     assert cuerpo["comida"]["promedio_calorias"] is None
     assert cuerpo["comida"]["promedio_prot_g"] is None
+    assert cuerpo["comida"]["promedio_carbs_g"] is None
+    assert cuerpo["comida"]["promedio_fat_g"] is None
     assert cuerpo["comida"]["comidas"] == []
     assert cuerpo["peso"]["inicial_kg"] is None
     assert cuerpo["peso"]["final_kg"] is None
@@ -702,6 +704,61 @@ def test_export_agrega_entrenamiento_de_la_ventana(client, auth_headers, db_sess
     assert entrenamiento["sesiones"][0]["grupos"] == ["Pecho"]
     assert entrenamiento["sesiones"][1]["duracion_min"] == 48
     assert entrenamiento["sesiones"][1]["grupos"] == ["Espalda"]
+
+
+def test_export_suma_series_y_dedupe_grupos_entre_ejercicios_de_la_misma_sesion(
+    client, auth_headers, db_session
+):
+    """`_crear_entrenamiento` solo arma un ejercicio por sesión: esta prueba
+    cubre el caso de dos ejercicios juntos, que es donde vive la suma de
+    series y la deduplicación de `grupos`."""
+    _crear_ficha(db_session, "0001", "Espalda")
+    _crear_ficha(db_session, "0002", "Espalda", target_es="Dorsales")
+
+    entrenamiento = Workout(
+        user_id=YO,
+        client_id=str(uuid.uuid4()),
+        routine_id=None,
+        started_at=BASE,
+        ended_at=BASE + dt.timedelta(minutes=40),
+    )
+    entrenamiento.ejercicios = [
+        WorkoutExercise(
+            catalog_id="0001",
+            orden=0,
+            series=[WorkoutSet(orden=0, reps=10, weight_kg=40, completed_at=BASE)],
+        ),
+        WorkoutExercise(
+            catalog_id="0002",
+            orden=1,
+            series=[
+                WorkoutSet(orden=0, reps=8, weight_kg=50, completed_at=BASE),
+                WorkoutSet(orden=1, reps=8, weight_kg=50, completed_at=BASE),
+            ],
+        ),
+    ]
+    db_session.add(entrenamiento)
+    db_session.commit()
+
+    cuerpo = client.get(
+        "/api/progress/export", params=_ventana_dos_dias(), headers=auth_headers
+    ).json()
+
+    sesion = cuerpo["entrenamiento"]["sesiones"][0]
+    assert sesion["series_totales"] == 3
+    assert sesion["grupos"] == ["Espalda"]
+
+
+def test_export_sesion_con_ejercicio_borrado_del_catalogo_muestra_sin_clasificar(
+    client, auth_headers, db_session
+):
+    _crear_entrenamiento(db_session, YO, BASE, minutos=20, catalog_id="9999", series=2)
+
+    cuerpo = client.get(
+        "/api/progress/export", params=_ventana_dos_dias(), headers=auth_headers
+    ).json()
+
+    assert cuerpo["entrenamiento"]["sesiones"][0]["grupos"] == ["Sin clasificar"]
 
 
 def test_export_promedia_calorias_y_macros_sobre_los_dias_de_la_ventana(

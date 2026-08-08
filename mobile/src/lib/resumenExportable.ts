@@ -77,6 +77,9 @@ function bloqueComida(comida: ResumenExportable['comida']): string {
   const prot = Math.round(comida.promedio_prot_g ?? 0);
   const carb = Math.round(comida.promedio_carbs_g ?? 0);
   const fat = Math.round(comida.promedio_fat_g ?? 0);
+  const metaMacros = comida.metas_macros
+    ? ` (meta P ${comida.metas_macros.prot} g · C ${comida.metas_macros.carb} g · G ${comida.metas_macros.fat} g)`
+    : '';
   const dias = agruparComidaPorDia(comida.comidas);
   const filas = dias
     .map(
@@ -89,7 +92,7 @@ function bloqueComida(comida: ResumenExportable['comida']): string {
 
   return (
     `<p>Promedio diario: ${kcal} kcal (meta ${comida.meta_calorias}) · Proteína ${prot} g · ` +
-    `Carbohidratos ${carb} g · Grasas ${fat} g</p>` +
+    `Carbohidratos ${carb} g · Grasas ${fat} g${metaMacros}</p>` +
     `<table>${filas}</table>`
   );
 }
