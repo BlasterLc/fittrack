@@ -54,6 +54,20 @@ export function ventanaDelAno(ahora = new Date()): { desde: string; hasta: strin
   return { desde: inicio.toISOString(), hasta: fin.toISOString() };
 }
 
+/**
+ * Los últimos `dias` días corridos hacia atrás desde ahora, no una semana o
+ * mes de calendario. `hasta` es el instante actual (no la medianoche
+ * siguiente): el resumen se exporta "hasta ahora", no hasta el final del día.
+ */
+export function ventanaDeUltimosDias(
+  dias: number,
+  ahora = new Date(),
+): { desde: string; hasta: string } {
+  const hoy = medianoche(ahora);
+  const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - (dias - 1));
+  return { desde: inicio.toISOString(), hasta: ahora.toISOString() };
+}
+
 /** Clave de día local. NO se puede usar toISOString(): eso da el día UTC. */
 export function claveDeDia(fecha: Date): string {
   return `${fecha.getFullYear()}-${fecha.getMonth()}-${fecha.getDate()}`;
@@ -139,6 +153,52 @@ export function useProgresionEjercicio(catalogId: string) {
 }
 
 export type RegistroPeso = { id: number; kg: number; recorded_at: string };
+
+export type SesionExportable = {
+  started_at: string;
+  duracion_min: number;
+  series_totales: number;
+  grupos: string[];
+};
+
+export type EntrenamientoExportable = {
+  duracion_promedio_min: number | null;
+  series_por_grupo: SeriesDeGrupo[];
+  sesiones: SesionExportable[];
+};
+
+export type ComidaExportableItem = {
+  logged_at: string;
+  calorias: number;
+  prot_g: number;
+  carbs_g: number;
+  fat_g: number;
+};
+
+export type ComidaExportable = {
+  meta_calorias: number;
+  metas_macros: { prot: number; carb: number; fat: number } | null;
+  promedio_calorias: number | null;
+  promedio_prot_g: number | null;
+  promedio_carbs_g: number | null;
+  promedio_fat_g: number | null;
+  comidas: ComidaExportableItem[];
+};
+
+export type PesoExportable = {
+  inicial_kg: number | null;
+  final_kg: number | null;
+  tendencia_kg: number | null;
+  registros: RegistroPeso[];
+};
+
+export type ResumenExportable = {
+  desde: string;
+  hasta: string;
+  entrenamiento: EntrenamientoExportable;
+  comida: ComidaExportable;
+  peso: PesoExportable;
+};
 
 /** Cuántos registros trae cada página del historial de peso. */
 const LIMITE_PESO = 12;
