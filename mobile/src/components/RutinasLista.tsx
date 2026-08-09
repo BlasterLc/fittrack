@@ -5,100 +5,23 @@ import {
   FlatList,
   Pressable,
   ActivityIndicator,
-  Alert,
   StyleSheet,
 } from 'react-native';
-import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import * as Crypto from 'expo-crypto';
 import {
-  rutinaDetalleQuery,
   useArchivarRutina,
   useRutinas,
   type RutinaEnLista,
 } from '@/hooks/useRutinas';
-import { escribirBorrador, leerBorrador, valorInicial } from '@/lib/sesion';
+import { useEmpezarRutina } from '@/hooks/useEmpezarRutina';
 import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
 
 export function RutinasLista() {
   const router = useRouter();
-  const cliente = useQueryClient();
   const [archivadas, setArchivadas] = useState(false);
-  const [empezando, setEmpezando] = useState<number | null>(null);
   const rutinas = useRutinas(archivadas);
   const archivar = useArchivarRutina();
-
-  /**
-   * Arma el borrador y abre la sesión.
-   *
-   * La lista solo tiene resúmenes, así que el detalle se pide acá: trae los
-   * ejercicios y los defaults de la última vez, que es de donde arrancan las
-   * ruedas. Se copian al borrador y no se vuelven a pedir, para que entrenar
-   * siga funcionando sin señal.
-   */
-  async function empezar(rutina: RutinaEnLista) {
-    if (empezando !== null) return;
-
-    // Un borrador vivo no se pisa nunca: adentro está el entrenamiento que el
-    // usuario todavía no guardó.
-    const abierto = await leerBorrador();
-    if (abierto) {
-      Alert.alert(
-        'Ya tienes un entrenamiento abierto',
-        `Termina o descarta «${abierto.nombreRutina}» antes de empezar otro.`,
-        [
-          { text: 'Ahora no', style: 'cancel' },
-          { text: 'Ir al entrenamiento', onPress: () => router.push('/sesion') },
-        ],
-      );
-      return;
-    }
-
-    setEmpezando(rutina.id);
-    try {
-      const detalle = await cliente.fetchQuery(rutinaDetalleQuery(rutina.id));
-      if (detalle.ejercicios.length === 0) {
-        Alert.alert(
-          'Esta rutina no tiene ejercicios',
-          'Agrégale al menos uno antes de entrenarla.',
-        );
-        return;
-      }
-
-      await escribirBorrador({
-        clientId: Crypto.randomUUID(),
-        rutinaId: detalle.id,
-        nombreRutina: detalle.nombre,
-        // Con toISOString, nunca armada a mano con campos locales: así se
-        // guardaba el día anterior en el selector de fecha del perfil.
-        iniciadoEn: new Date().toISOString(),
-        terminadoEn: null,
-        indiceActual: 0,
-        ejercicios: detalle.ejercicios.map((e) => ({
-          catalogId: e.id,
-          nombre: e.nombre_es,
-          gifUrl: e.gif_url,
-          equipamiento: e.equipment_es,
-          agregado: false,
-          repsDefault: e.reps_default,
-          kgDefault: e.weight_default,
-          // Las filas nacen con el entrenamiento: tantas como hiciste la
-          // última vez, o una si el ejercicio es nuevo. Registrar la serie 2
-          // no puede costar un toque para «agregarla» primero.
-          series: Array.from({ length: Math.max(1, e.sets_default ?? 1) }, () => ({
-            reps: valorInicial(e.reps_default, 'reps'),
-            kg: valorInicial(e.weight_default, 'kg'),
-            completadaEn: null,
-          })),
-        })),
-      });
-      router.push('/sesion');
-    } catch (error) {
-      Alert.alert('No pudimos abrir la rutina', (error as Error).message);
-    } finally {
-      setEmpezando(null);
-    }
-  }
+  const { empezar, empezando } = useEmpezarRutina();
 
   if (rutinas.isPending) {
     return <ActivityIndicator style={styles.centrado} color={colors.primary} />;
@@ -140,7 +63,7 @@ export function RutinasLista() {
         <Fila
           rutina={item}
           onPress={() => router.push(`/gym/rutina/${item.id}`)}
-          onEmpezar={() => empezar(item)}
+          onEmpezar={() => empezar(item.id)}
           onArchivar={() =>
             archivar.mutate({ id: item.id, archivada: !archivadas })
           }

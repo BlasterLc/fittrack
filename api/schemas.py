@@ -90,6 +90,11 @@ class PesoResumen(BaseModel):
     fecha: str
 
 
+class RutinaResumen(BaseModel):
+    id: int
+    nombre: str
+
+
 class ResumenDia(BaseModel):
     calorias: Calorias
     macros: Macros
@@ -98,6 +103,8 @@ class ResumenDia(BaseModel):
     metas_macros: MetasMacros | None
     entrenamiento: EntrenamientoResumen | None
     peso: PesoResumen | None
+    ultima_rutina: RutinaResumen | None
+    racha_dias: int
 
 
 class ItemComida(BaseModel):

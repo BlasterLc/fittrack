@@ -140,7 +140,21 @@ def test_sin_entrenar_hoy_el_dashboard_devuelve_null(client, db_session, auth_he
     assert client.get("/api/dashboard", headers=auth_headers).json()["entrenamiento"] is None
 
 
-def _crear_entrenamiento(db_session, user_id, client_id, dias_atras=0):
+def _crear_rutina(db_session, user_id, nombre, archivada=False):
+    import datetime as dt
+
+    from api.models import Routine
+
+    rutina = Routine(user_id=user_id, nombre=nombre)
+    if archivada:
+        rutina.archived_at = dt.datetime.now(dt.timezone.utc)
+    db_session.add(rutina)
+    db_session.commit()
+    db_session.refresh(rutina)
+    return rutina
+
+
+def _crear_entrenamiento(db_session, user_id, client_id, dias_atras=0, routine_id=None):
     """Un entrenamiento de 30 minutos con una serie, para las pruebas de
     aislamiento del resumen diario."""
     import datetime as dt
@@ -151,6 +165,7 @@ def _crear_entrenamiento(db_session, user_id, client_id, dias_atras=0):
     entrenamiento = Workout(
         user_id=user_id,
         client_id=client_id,
+        routine_id=routine_id,
         started_at=fin - dt.timedelta(minutes=30),
         ended_at=fin,
     )
@@ -284,3 +299,152 @@ def _crear_entrenamiento_en(db_session, user_id, client_id, empezado):
     db_session.add(w)
     db_session.commit()
     return w
+
+
+def test_dashboard_muestra_el_peso_mas_reciente(client, auth_headers, db_session):
+    import datetime as dt
+
+    from api.models import WeightEntry
+
+    yo = "11111111-1111-1111-1111-111111111111"
+    db_session.add(
+        WeightEntry(
+            user_id=yo, kg=80.0,
+            recorded_at=dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=3),
+        )
+    )
+    db_session.add(
+        WeightEntry(user_id=yo, kg=78.4, recorded_at=dt.datetime.now(dt.timezone.utc))
+    )
+    db_session.commit()
+
+    cuerpo = client.get("/api/dashboard", headers=auth_headers).json()
+
+    assert cuerpo["peso"]["kg"] == 78.4
+
+
+def test_ultima_rutina_es_la_del_entrenamiento_mas_reciente(client, auth_headers, db_session):
+    yo = "11111111-1111-1111-1111-111111111111"
+    vieja = _crear_rutina(db_session, yo, "Piernas")
+    nueva = _crear_rutina(db_session, yo, "Empuje")
+    _crear_entrenamiento(db_session, yo, "viejo", dias_atras=3, routine_id=vieja.id)
+    _crear_entrenamiento(db_session, yo, "nuevo", dias_atras=1, routine_id=nueva.id)
+
+    cuerpo = client.get("/api/dashboard", headers=auth_headers).json()
+
+    assert cuerpo["ultima_rutina"] == {"id": nueva.id, "nombre": "Empuje"}
+
+
+def test_ultima_rutina_null_si_nunca_entreno_desde_una_rutina(client, auth_headers, db_session):
+    yo = "11111111-1111-1111-1111-111111111111"
+    _crear_entrenamiento(db_session, yo, "suelto", dias_atras=1)
+
+    cuerpo = client.get("/api/dashboard", headers=auth_headers).json()
+
+    assert cuerpo["ultima_rutina"] is None
+
+
+def test_ultima_rutina_salta_la_archivada_y_busca_la_anterior(client, auth_headers, db_session):
+    yo = "11111111-1111-1111-1111-111111111111"
+    activa = _crear_rutina(db_session, yo, "Piernas")
+    archivada = _crear_rutina(db_session, yo, "Empuje viejo", archivada=True)
+    _crear_entrenamiento(db_session, yo, "viejo", dias_atras=3, routine_id=activa.id)
+    _crear_entrenamiento(db_session, yo, "nuevo", dias_atras=1, routine_id=archivada.id)
+
+    cuerpo = client.get("/api/dashboard", headers=auth_headers).json()
+
+    assert cuerpo["ultima_rutina"] == {"id": activa.id, "nombre": "Piernas"}
+
+
+def test_ultima_rutina_null_si_todas_las_usadas_estan_archivadas(client, auth_headers, db_session):
+    yo = "11111111-1111-1111-1111-111111111111"
+    archivada = _crear_rutina(db_session, yo, "Empuje viejo", archivada=True)
+    _crear_entrenamiento(db_session, yo, "nuevo", dias_atras=1, routine_id=archivada.id)
+
+    cuerpo = client.get("/api/dashboard", headers=auth_headers).json()
+
+    assert cuerpo["ultima_rutina"] is None
+
+
+def test_racha_cuenta_dias_consecutivos_hasta_hoy(client, auth_headers, db_session):
+    """Fechas fijas, no relativas a `now()`: entre las 00:00 y las 00:30 UTC,
+    `_crear_entrenamiento` (que resta 30 min de `fin` para armar `started_at`)
+    puede empujar un entrenamiento al día calendario anterior, y una racha que
+    encadena varios días exactos es justo el caso que delata esa ventana."""
+    import datetime as dt
+
+    yo = "11111111-1111-1111-1111-111111111111"
+    _crear_entrenamiento_en(db_session, yo, "hoy", dt.datetime(2026, 1, 15, 12, 0, tzinfo=dt.timezone.utc))
+    _crear_entrenamiento_en(db_session, yo, "ayer", dt.datetime(2026, 1, 14, 12, 0, tzinfo=dt.timezone.utc))
+    _crear_entrenamiento_en(db_session, yo, "antier", dt.datetime(2026, 1, 13, 12, 0, tzinfo=dt.timezone.utc))
+
+    cuerpo = client.get(
+        "/api/dashboard?desde=2026-01-15T00:00:00Z&hasta=2026-01-16T00:00:00Z",
+        headers=auth_headers,
+    ).json()
+
+    assert cuerpo["racha_dias"] == 3
+
+
+def test_racha_sigue_contando_si_hoy_no_entreno_pero_ayer_si(client, auth_headers, db_session):
+    import datetime as dt
+
+    yo = "11111111-1111-1111-1111-111111111111"
+    _crear_entrenamiento_en(db_session, yo, "ayer", dt.datetime(2026, 1, 14, 12, 0, tzinfo=dt.timezone.utc))
+    _crear_entrenamiento_en(db_session, yo, "antier", dt.datetime(2026, 1, 13, 12, 0, tzinfo=dt.timezone.utc))
+
+    cuerpo = client.get(
+        "/api/dashboard?desde=2026-01-15T00:00:00Z&hasta=2026-01-16T00:00:00Z",
+        headers=auth_headers,
+    ).json()
+
+    assert cuerpo["racha_dias"] == 2
+
+
+def test_racha_se_corta_en_el_primer_dia_sin_entrenar(client, auth_headers, db_session):
+    import datetime as dt
+
+    yo = "11111111-1111-1111-1111-111111111111"
+    _crear_entrenamiento_en(db_session, yo, "hoy", dt.datetime(2026, 1, 15, 12, 0, tzinfo=dt.timezone.utc))
+    _crear_entrenamiento_en(db_session, yo, "hace_tres", dt.datetime(2026, 1, 12, 12, 0, tzinfo=dt.timezone.utc))
+
+    cuerpo = client.get(
+        "/api/dashboard?desde=2026-01-15T00:00:00Z&hasta=2026-01-16T00:00:00Z",
+        headers=auth_headers,
+    ).json()
+
+    assert cuerpo["racha_dias"] == 1
+
+
+def test_racha_en_cero_sin_entrenamientos(client, auth_headers):
+    cuerpo = client.get(
+        "/api/dashboard?desde=2026-01-15T00:00:00Z&hasta=2026-01-16T00:00:00Z",
+        headers=auth_headers,
+    ).json()
+
+    assert cuerpo["racha_dias"] == 0
+
+
+def test_racha_ignora_entrenamientos_de_otros_usuarios(client, auth_headers, db_session):
+    import datetime as dt
+
+    _crear_entrenamiento_en(
+        db_session, "otro-usuario", "ajeno", dt.datetime(2026, 1, 15, 12, 0, tzinfo=dt.timezone.utc)
+    )
+
+    cuerpo = client.get(
+        "/api/dashboard?desde=2026-01-15T00:00:00Z&hasta=2026-01-16T00:00:00Z",
+        headers=auth_headers,
+    ).json()
+
+    assert cuerpo["racha_dias"] == 0
+
+
+def test_ultima_rutina_ignora_entrenamientos_de_otros_usuarios(client, auth_headers, db_session):
+    otro = "otro-usuario"
+    rutina_ajena = _crear_rutina(db_session, otro, "Piernas")
+    _crear_entrenamiento(db_session, otro, "ajeno", dias_atras=1, routine_id=rutina_ajena.id)
+
+    cuerpo = client.get("/api/dashboard", headers=auth_headers).json()
+
+    assert cuerpo["ultima_rutina"] is None
