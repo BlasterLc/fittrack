@@ -364,3 +364,40 @@ def test_ultima_rutina_null_si_todas_las_usadas_estan_archivadas(client, auth_he
     cuerpo = client.get("/api/dashboard", headers=auth_headers).json()
 
     assert cuerpo["ultima_rutina"] is None
+
+
+def test_racha_cuenta_dias_consecutivos_hasta_hoy(client, auth_headers, db_session):
+    yo = "11111111-1111-1111-1111-111111111111"
+    _crear_entrenamiento(db_session, yo, "hoy", dias_atras=0)
+    _crear_entrenamiento(db_session, yo, "ayer", dias_atras=1)
+    _crear_entrenamiento(db_session, yo, "antier", dias_atras=2)
+
+    cuerpo = client.get("/api/dashboard", headers=auth_headers).json()
+
+    assert cuerpo["racha_dias"] == 3
+
+
+def test_racha_sigue_contando_si_hoy_no_entreno_pero_ayer_si(client, auth_headers, db_session):
+    yo = "11111111-1111-1111-1111-111111111111"
+    _crear_entrenamiento(db_session, yo, "ayer", dias_atras=1)
+    _crear_entrenamiento(db_session, yo, "antier", dias_atras=2)
+
+    cuerpo = client.get("/api/dashboard", headers=auth_headers).json()
+
+    assert cuerpo["racha_dias"] == 2
+
+
+def test_racha_se_corta_en_el_primer_dia_sin_entrenar(client, auth_headers, db_session):
+    yo = "11111111-1111-1111-1111-111111111111"
+    _crear_entrenamiento(db_session, yo, "hoy", dias_atras=0)
+    _crear_entrenamiento(db_session, yo, "hace_tres", dias_atras=3)
+
+    cuerpo = client.get("/api/dashboard", headers=auth_headers).json()
+
+    assert cuerpo["racha_dias"] == 1
+
+
+def test_racha_en_cero_sin_entrenamientos(client, auth_headers):
+    cuerpo = client.get("/api/dashboard", headers=auth_headers).json()
+
+    assert cuerpo["racha_dias"] == 0

@@ -104,6 +104,7 @@ class ResumenDia(BaseModel):
     entrenamiento: EntrenamientoResumen | None
     peso: PesoResumen | None
     ultima_rutina: RutinaResumen | None
+    racha_dias: int
 
 
 class ItemComida(BaseModel):

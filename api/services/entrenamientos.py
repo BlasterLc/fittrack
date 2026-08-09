@@ -1,6 +1,6 @@
 """Lógica de entrenamientos. Los routers no deciden nada, solo traducen HTTP."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -51,6 +51,52 @@ def resumen_del_dia(
         int((w.ended_at - w.started_at).total_seconds() // 60) for w in entrenamientos
     )
     return {"series": series, "duracion_min": minutos}
+
+
+def racha_dias(sesion: Session, user_id: str, inicio_hoy: datetime) -> int:
+    """Días consecutivos con al menos un entrenamiento, contando hacia atrás
+    desde el día de `inicio_hoy` (el borde de medianoche local que ya manda el
+    teléfono, igual que `resumen_del_dia`).
+
+    Si hoy todavía no hay entrenamiento guardado, la racha no se corta ahí: se
+    prueba ayer y se sigue contando desde donde haya registro. Recién se corta
+    cuando aparece un día completo sin nada.
+
+    Camina de a un día con `timedelta(days=1)` sobre el mismo borde que ya
+    manda el teléfono — no corrige el cambio de horario de verano, que mueve
+    el borde una hora dos veces al año y no saca ningún entrenamiento real de
+    su día.
+    """
+
+    def entrenado_en(dia_inicio: datetime, dia_fin: datetime) -> bool:
+        return (
+            sesion.execute(
+                select(Workout.id)
+                .where(
+                    Workout.user_id == user_id,
+                    Workout.started_at >= dia_inicio,
+                    Workout.started_at < dia_fin,
+                )
+                .limit(1)
+            ).first()
+            is not None
+        )
+
+    dia_inicio = inicio_hoy
+    dia_fin = inicio_hoy + timedelta(days=1)
+
+    if not entrenado_en(dia_inicio, dia_fin):
+        dia_fin = dia_inicio
+        dia_inicio = dia_inicio - timedelta(days=1)
+        if not entrenado_en(dia_inicio, dia_fin):
+            return 0
+
+    racha = 0
+    while entrenado_en(dia_inicio, dia_fin):
+        racha += 1
+        dia_fin = dia_inicio
+        dia_inicio = dia_inicio - timedelta(days=1)
+    return racha
 
 
 def ultima_rutina_activa(sesion: Session, user_id: str) -> Routine | None:

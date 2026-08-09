@@ -96,4 +96,5 @@ def resumen_del_dia(
             if ultima_rutina is not None
             else None
         ),
+        racha_dias=servicio_entrenamientos.racha_dias(db, user_id, inicio),
     )
