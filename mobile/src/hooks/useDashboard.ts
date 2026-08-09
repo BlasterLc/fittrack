@@ -4,8 +4,11 @@ import { apiGet } from '@/lib/api';
 export type ResumenDia = {
   calorias: { consumidas: number; meta: number };
   macros: { prot: number; carb: number; fat: number };
+  metas_macros: { prot: number; carb: number; fat: number } | null;
   entrenamiento: { series: number; duracion_min: number } | null;
   peso: { kg: number; fecha: string } | null;
+  ultima_rutina: { id: number; nombre: string } | null;
+  racha_dias: number;
 };
 
 /**
