@@ -5,7 +5,6 @@ import {
   FlatList,
   Pressable,
   ActivityIndicator,
-  Alert,
   StyleSheet,
 } from 'react-native';
 import { useRouter } from 'expo-router';

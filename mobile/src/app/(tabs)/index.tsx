@@ -114,7 +114,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     marginBottom: spacing.lg,
   },
-  rachaTexto: { color: colors.accent, fontFamily: fonts.medium, fontSize: fontSize.sm },
+  // `accent` es solo semántico (marca lo que necesita atención) — una racha
+  // es un logro, no una alerta, así que va con `primaryText` como el resto
+  // de los textos de acento no semántico.
+  rachaTexto: { color: colors.primaryText, fontFamily: fonts.medium, fontSize: fontSize.sm },
   accesos: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg, marginBottom: spacing.lg },
   acceso: {
     flex: 1,
