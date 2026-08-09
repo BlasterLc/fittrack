@@ -4,11 +4,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
 
+type Modo = 'ingresar' | 'crear';
+
 export default function Login() {
+  const [modo, setModo] = useState<Modo>('ingresar');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Con confirmación de correo obligatoria, `signUp` no abre sesión: no hay
+  // a dónde navegar, solo un aviso de que hay que revisar el correo.
+  const [correoEnviado, setCorreoEnviado] = useState<string | null>(null);
 
   async function iniciarSesion() {
     setLoading(true);
@@ -18,6 +24,59 @@ export default function Login() {
       setError('No pudimos iniciar sesión. Revisa tu correo y contraseña.');
     }
     setLoading(false);
+  }
+
+  async function crearCuenta() {
+    setLoading(true);
+    setError(null);
+    const { data, error: errorRegistro } = await supabase.auth.signUp({
+      email,
+      password,
+      // Sin esto, el link del correo de confirmación cae en el "Site URL"
+      // por defecto del panel de Supabase (http://localhost:3000, un
+      // remanente de la creación del proyecto): la cuenta queda confirmada
+      // igual, pero el navegador muestra "localhost rechazó la conexión" y
+      // parece que falló. Esta ruta la sirve el propio backend.
+      options: { emailRedirectTo: `${process.env.EXPO_PUBLIC_API_URL}/confirmado` },
+    });
+    if (errorRegistro) {
+      setError(
+        errorRegistro.message.toLowerCase().includes('password')
+          ? 'La contraseña debe tener al menos 6 caracteres.'
+          : 'No pudimos crear tu cuenta. Revisa el correo e intenta de nuevo.',
+      );
+    } else if (!data.session) {
+      setCorreoEnviado(email);
+    }
+    setLoading(false);
+  }
+
+  function cambiarModo(siguiente: Modo) {
+    setModo(siguiente);
+    setError(null);
+  }
+
+  if (correoEnviado) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.container}>
+          <Text style={styles.titulo}>FitTrack</Text>
+          <Text style={styles.aviso}>
+            Te mandamos un correo a {correoEnviado}. Ábrelo para confirmar tu cuenta y después
+            inicia sesión aquí.
+          </Text>
+          <Pressable
+            style={styles.boton}
+            onPress={() => {
+              setCorreoEnviado(null);
+              cambiarModo('ingresar');
+            }}
+          >
+            <Text style={styles.botonTexto}>Ir a iniciar sesión</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
   }
 
   return (
@@ -42,12 +101,30 @@ export default function Login() {
           onChangeText={setPassword}
         />
         {error && <Text style={styles.error}>{error}</Text>}
-        <Pressable style={styles.boton} onPress={iniciarSesion} disabled={loading}>
+        <Pressable
+          style={styles.boton}
+          onPress={modo === 'ingresar' ? iniciarSesion : crearCuenta}
+          disabled={loading}
+        >
           {loading ? (
             <ActivityIndicator color={colors.ink} />
           ) : (
-            <Text style={styles.botonTexto}>Entrar</Text>
+            <Text style={styles.botonTexto}>
+              {modo === 'ingresar' ? 'Entrar' : 'Crear cuenta'}
+            </Text>
           )}
+        </Pressable>
+        <Pressable
+          style={styles.alternar}
+          onPress={() => cambiarModo(modo === 'ingresar' ? 'crear' : 'ingresar')}
+          disabled={loading}
+          accessibilityRole="button"
+        >
+          <Text style={styles.alternarTexto}>
+            {modo === 'ingresar'
+              ? '¿No tienes cuenta? Crea una'
+              : '¿Ya tienes cuenta? Inicia sesión'}
+          </Text>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -84,4 +161,14 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   botonTexto: { color: colors.ink, fontFamily: fonts.semibold, fontSize: fontSize.lg },
+  aviso: {
+    color: colors.ink,
+    fontFamily: fonts.regular,
+    fontSize: fontSize.base,
+    lineHeight: 22,
+    textAlign: 'center',
+    marginBottom: spacing.xl,
+  },
+  alternar: { minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: spacing.sm },
+  alternarTexto: { color: colors.primaryText, fontFamily: fonts.medium, fontSize: fontSize.sm },
 });

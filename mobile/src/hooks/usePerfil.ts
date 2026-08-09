@@ -2,10 +2,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiGet, apiPost, apiPut } from '@/lib/api';
 import type { FichaBorrador, Perfil, Previsualizacion } from '@/lib/perfil';
 
-export function usePerfil() {
+export function usePerfil(habilitada = true) {
   return useQuery({
     queryKey: ['perfil'],
     queryFn: () => apiGet<Perfil>('/api/profile'),
+    enabled: habilitada,
   });
 }
 

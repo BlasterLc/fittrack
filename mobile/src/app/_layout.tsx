@@ -12,6 +12,7 @@ import {
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SessionProvider, useSession } from '@/lib/session';
+import { usePerfil } from '@/hooks/usePerfil';
 import { queryClient } from '@/lib/query';
 import { colors } from '@/theme/tokens';
 
@@ -32,21 +33,36 @@ const tema = {
 };
 
 // Redirige según haya sesión: sin sesión → login; con sesión dentro del
-// grupo de auth → a las tabs.
+// grupo de auth → asistente de perfil si está incompleto, si no, a las tabs.
 function useAuthGate() {
   const { session, isLoading } = useSession();
   const segments = useSegments();
   const router = useRouter();
+  // Solo se consulta con sesión: sin ella el endpoint devolvería 401. Se
+  // dispara en cada pantalla, no solo acá, pero comparte la misma queryKey
+  // que ya usan Perfil y EncabezadoPantalla — no es una llamada extra.
+  const { data: perfil, isLoading: perfilCargando } = usePerfil(!!session);
 
   useEffect(() => {
     if (isLoading) return;
     const enAuth = segments[0] === '(auth)';
     if (!session && !enAuth) {
       router.replace('/login');
-    } else if (session && enAuth) {
-      router.replace('/');
+      return;
     }
-  }, [session, isLoading, segments, router]);
+    if (session && enAuth) {
+      // Se espera a que el perfil resuelva antes de decidir a dónde ir: sin
+      // esto, la primera pasada (perfil todavía sin cargar) mandaría siempre
+      // a las tabs. Si la consulta falla, se sigue a las tabs igual — un
+      // error de red pasajero no puede trabar el login entero.
+      if (perfilCargando) return;
+      if (perfil && !perfil.completo) {
+        router.replace('/perfil/asistente');
+      } else {
+        router.replace('/');
+      }
+    }
+  }, [session, isLoading, segments, router, perfil, perfilCargando]);
 }
 
 function RootNavigator() {

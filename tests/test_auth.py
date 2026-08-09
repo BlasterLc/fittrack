@@ -54,6 +54,16 @@ def test_salud_es_publica(client):
     assert respuesta.json() == {"estado": "ok"}
 
 
+def test_confirmado_es_publica_y_no_apunta_a_localhost(client):
+    """Destino del link de confirmación de correo de Supabase — pública (nadie
+    llega ahí con una sesión iniciada) y sin rastro del "Site URL" por
+    defecto que rompía con "localhost rechazó la conexión"."""
+    respuesta = client.get("/confirmado")
+    assert respuesta.status_code == 200
+    assert "localhost" not in respuesta.text
+    assert "FitTrack" in respuesta.text
+
+
 def test_fixture_auth_headers_permite_entrar(client, auth_headers):
     respuesta = client.get("/api/me", headers=auth_headers)
     assert respuesta.status_code == 200
