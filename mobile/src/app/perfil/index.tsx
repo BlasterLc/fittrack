@@ -8,6 +8,7 @@ import { CampoFecha } from '@/components/CampoFecha';
 import { MetasResumen } from '@/components/MetasResumen';
 import { Fila, FilaNumero } from '@/components/CamposPerfil';
 import { useGuardarPerfil, usePerfil } from '@/hooks/usePerfil';
+import { useBackNativo, volverOA } from '@/lib/navegacion';
 import { supabase } from '@/lib/supabase';
 import {
   OPCIONES_ACTIVIDAD,
@@ -28,6 +29,12 @@ export default function Perfil() {
   const { data: perfil, isLoading, isError } = usePerfil();
   const guardar = useGuardarPerfil();
   const [hoja, setHoja] = useState<'sexo' | 'actividad' | 'objetivo' | null>(null);
+
+  // El back nativo de Android (botón físico o gesto de borde) tiene que
+  // hacer lo mismo que el botón "‹ Atrás" en pantalla: sin esto, llegar
+  // acá sin historial (p. ej. desde el asistente obligatorio) dejaba que
+  // Android cerrara la app entera en vez de navegar dentro de ella.
+  useBackNativo(() => volverOA(router, '/'));
 
   // Cada campo guarda al confirmarse. El PUT converge y describe el estado
   // final, así que se manda la ficha completa con el cambio aplicado; no hay
@@ -142,10 +149,7 @@ export default function Perfil() {
         <Pressable
           style={styles.barraBoton}
           hitSlop={{ left: 12, right: 12 }}
-          // Sin guardia, esto revienta si se llega acá sin historial (p. ej.
-          // desde el asistente obligatorio tras crear una cuenta, que a su
-          // vez llegó por un router.replace() sin páginas atrás).
-          onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+          onPress={() => volverOA(router, '/')}
           accessibilityRole="button"
           accessibilityLabel="Volver"
         >

@@ -7,6 +7,7 @@ import { CampoFecha } from '@/components/CampoFecha';
 import { MetasResumen } from '@/components/MetasResumen';
 import { Fila, FilaNumero, Tarjeta } from '@/components/CamposPerfil';
 import { useGuardarPerfil, usePerfil, usePrevisualizacion } from '@/hooks/usePerfil';
+import { useBackNativo, volverOA } from '@/lib/navegacion';
 import {
   OPCIONES_ACTIVIDAD,
   OPCIONES_OBJETIVO,
@@ -19,20 +20,6 @@ import {
 import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
 
 const ULTIMO_PASO = 4;
-
-/**
- * "‹ Atrás" no siempre tiene a dónde volver: cuando el asistente se abre
- * automáticamente tras crear una cuenta (`_layout.tsx` reemplaza el login por
- * esta pantalla, no lo apila), no queda historial y `router.back()` revienta.
- * En ese caso se manda a Perfil, que sí es un destino válido.
- */
-function volver(router: ReturnType<typeof useRouter>) {
-  if (router.canGoBack()) {
-    router.back();
-  } else {
-    router.replace('/perfil');
-  }
-}
 
 /**
  * El asistente parte SIEMPRE de la ficha que ya está guardada.
@@ -66,7 +53,7 @@ export default function Asistente() {
         <Pressable
           style={styles.barraBoton}
           hitSlop={{ left: 12, right: 12 }}
-          onPress={() => volver(router)}
+          onPress={() => volverOA(router, '/perfil')}
           accessibilityRole="button"
           accessibilityLabel="Atrás"
         >
@@ -121,9 +108,15 @@ function AsistentePasos({
   }
 
   function atras() {
-    if (paso === 1) volver(router);
+    if (paso === 1) volverOA(router, '/perfil');
     else setPaso(paso - 1);
   }
+
+  // El back nativo de Android (botón físico o gesto de borde) tiene que
+  // hacer lo mismo que el botón "‹ Atrás" en pantalla: retroceder un paso, o
+  // salir del asistente si ya está en el primero. Sin esto, cerraba la app
+  // entera en vez de navegar dentro de ella.
+  useBackNativo(atras);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
