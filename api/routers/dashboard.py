@@ -8,7 +8,7 @@ from api.auth import get_current_user
 from api.config import Config
 from api.database import get_db
 from api.models import Meal, MealItem
-from api.schemas import Calorias, Macros, MetasMacros, PesoResumen, ResumenDia
+from api.schemas import Calorias, Macros, MetasMacros, PesoResumen, ResumenDia, RutinaResumen
 from api.services import entrenamientos as servicio_entrenamientos
 from api.services import perfil as servicio_perfil
 from api.services import peso as servicio_peso
@@ -72,6 +72,7 @@ def resumen_del_dia(
     )
 
     ultimo_peso = servicio_peso.mas_reciente(db, user_id)
+    ultima_rutina = servicio_entrenamientos.ultima_rutina_activa(db, user_id)
 
     return ResumenDia(
         calorias=Calorias(
@@ -88,6 +89,11 @@ def resumen_del_dia(
         peso=(
             PesoResumen(kg=ultimo_peso.kg, fecha=ultimo_peso.recorded_at.isoformat())
             if ultimo_peso is not None
+            else None
+        ),
+        ultima_rutina=(
+            RutinaResumen(id=ultima_rutina.id, nombre=ultima_rutina.nombre)
+            if ultima_rutina is not None
             else None
         ),
     )

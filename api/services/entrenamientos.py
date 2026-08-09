@@ -53,6 +53,22 @@ def resumen_del_dia(
     return {"series": series, "duracion_min": minutos}
 
 
+def ultima_rutina_activa(sesion: Session, user_id: str) -> Routine | None:
+    """La rutina del entrenamiento más reciente del usuario que siga activa.
+
+    Si la rutina del entrenamiento más reciente está archivada, sigue
+    buscando hacia atrás hasta la primera que no lo esté — mismo criterio que
+    ya usa la lista de rutinas, donde una archivada no se puede "Empezar".
+    """
+    return sesion.execute(
+        select(Routine)
+        .join(Workout, Workout.routine_id == Routine.id)
+        .where(Workout.user_id == user_id, Routine.archived_at.is_(None))
+        .order_by(Workout.started_at.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+
+
 def _buscar_por_cliente(sesion: Session, user_id: str, client_id: str) -> Workout | None:
     """El entrenamiento que ese cliente ya guardó, si existe.
 

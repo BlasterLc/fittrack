@@ -140,7 +140,21 @@ def test_sin_entrenar_hoy_el_dashboard_devuelve_null(client, db_session, auth_he
     assert client.get("/api/dashboard", headers=auth_headers).json()["entrenamiento"] is None
 
 
-def _crear_entrenamiento(db_session, user_id, client_id, dias_atras=0):
+def _crear_rutina(db_session, user_id, nombre, archivada=False):
+    import datetime as dt
+
+    from api.models import Routine
+
+    rutina = Routine(user_id=user_id, nombre=nombre)
+    if archivada:
+        rutina.archived_at = dt.datetime.now(dt.timezone.utc)
+    db_session.add(rutina)
+    db_session.commit()
+    db_session.refresh(rutina)
+    return rutina
+
+
+def _crear_entrenamiento(db_session, user_id, client_id, dias_atras=0, routine_id=None):
     """Un entrenamiento de 30 minutos con una serie, para las pruebas de
     aislamiento del resumen diario."""
     import datetime as dt
@@ -151,6 +165,7 @@ def _crear_entrenamiento(db_session, user_id, client_id, dias_atras=0):
     entrenamiento = Workout(
         user_id=user_id,
         client_id=client_id,
+        routine_id=routine_id,
         started_at=fin - dt.timedelta(minutes=30),
         ended_at=fin,
     )
@@ -306,3 +321,46 @@ def test_dashboard_muestra_el_peso_mas_reciente(client, auth_headers, db_session
     cuerpo = client.get("/api/dashboard", headers=auth_headers).json()
 
     assert cuerpo["peso"]["kg"] == 78.4
+
+
+def test_ultima_rutina_es_la_del_entrenamiento_mas_reciente(client, auth_headers, db_session):
+    yo = "11111111-1111-1111-1111-111111111111"
+    vieja = _crear_rutina(db_session, yo, "Piernas")
+    nueva = _crear_rutina(db_session, yo, "Empuje")
+    _crear_entrenamiento(db_session, yo, "viejo", dias_atras=3, routine_id=vieja.id)
+    _crear_entrenamiento(db_session, yo, "nuevo", dias_atras=1, routine_id=nueva.id)
+
+    cuerpo = client.get("/api/dashboard", headers=auth_headers).json()
+
+    assert cuerpo["ultima_rutina"] == {"id": nueva.id, "nombre": "Empuje"}
+
+
+def test_ultima_rutina_null_si_nunca_entreno_desde_una_rutina(client, auth_headers, db_session):
+    yo = "11111111-1111-1111-1111-111111111111"
+    _crear_entrenamiento(db_session, yo, "suelto", dias_atras=1)
+
+    cuerpo = client.get("/api/dashboard", headers=auth_headers).json()
+
+    assert cuerpo["ultima_rutina"] is None
+
+
+def test_ultima_rutina_salta_la_archivada_y_busca_la_anterior(client, auth_headers, db_session):
+    yo = "11111111-1111-1111-1111-111111111111"
+    activa = _crear_rutina(db_session, yo, "Piernas")
+    archivada = _crear_rutina(db_session, yo, "Empuje viejo", archivada=True)
+    _crear_entrenamiento(db_session, yo, "viejo", dias_atras=3, routine_id=activa.id)
+    _crear_entrenamiento(db_session, yo, "nuevo", dias_atras=1, routine_id=archivada.id)
+
+    cuerpo = client.get("/api/dashboard", headers=auth_headers).json()
+
+    assert cuerpo["ultima_rutina"] == {"id": activa.id, "nombre": "Piernas"}
+
+
+def test_ultima_rutina_null_si_todas_las_usadas_estan_archivadas(client, auth_headers, db_session):
+    yo = "11111111-1111-1111-1111-111111111111"
+    archivada = _crear_rutina(db_session, yo, "Empuje viejo", archivada=True)
+    _crear_entrenamiento(db_session, yo, "nuevo", dias_atras=1, routine_id=archivada.id)
+
+    cuerpo = client.get("/api/dashboard", headers=auth_headers).json()
+
+    assert cuerpo["ultima_rutina"] is None
