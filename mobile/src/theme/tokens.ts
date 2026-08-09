@@ -20,27 +20,38 @@ export const colors = {
   fat: '#00a38f',
   // Superficie de la sesión de entrenamiento: estrategia "committed", el índigo
   // ocupa la pantalla entera para que el modo se lea sin leer. Solo acá.
-  sesionBg: '#232a63',
-  sesionSurface: '#1a1f4d',
+  //
+  // Retocado el 2026-08-09: el matiz original ya coincidía con `primary` (a
+  // 3-4° en HSL, no era "el índigo equivocado"), pero saturaba 48-50% de
+  // golpe contra un resto de la app casi acromático — de ahí la sensación de
+  // "no combina". Mismo matiz (~231°), saturación bajada a ~25% y más oscuro,
+  // validado con un mockup comparativo antes de tocar el código. Los cuatro
+  // colores de acento de abajo (`sesionBorde`/`sesionInk`/`sesionMuted`/
+  // `sesionDanger`) no cambiaron: un fondo más oscuro solo mejora su
+  // contraste, nunca lo empeora, así que se recalcularon las cifras de los
+  // comentarios pero no los valores.
+  sesionBg: '#171926',
+  sesionSurface: '#212436',
   // Separadores: no delimitan nada tocable, así que no les aplica el 3:1 y
   // pueden quedar tenues.
-  sesionLine: '#3a44a0',
+  sesionLine: '#2a2e46',
   // El contorno de un control SÍ necesita 3:1 (WCAG 1.4.11), y `sesionLine`
   // da 1,59:1 sobre `sesionBg`: «Terminar» y «+ Agregar serie» son botones
   // contorneados, así que el borde es su único límite visual y era invisible.
-  // Este da 3,62:1 sobre `sesionBg` y 4,25:1 sobre `sesionSurface`.
+  // Este da 4,76:1 sobre `sesionBg` y 4,18:1 sobre `sesionSurface`.
   sesionBorde: '#7080d4',
   sesionInk: '#dfe3ff',
   // `muted` da 4,00:1 sobre `sesionBg` (falla el 4,5:1 de texto normal, es un
   // fondo más claro que los del resto de la app). Este gris es apenas más
-  // claro y da 4,65:1: mismo rol de "sin énfasis", pero acá nomás.
+  // claro y da 6,12:1 sobre `sesionBg` y 5,38:1 sobre `sesionSurface`: mismo
+  // rol de "sin énfasis", pero acá nomás.
   sesionMuted: '#9599a3',
   // Mismo problema que `sesionMuted`, pero con `danger`: da 3,98:1 sobre
   // `sesionSurface` y 3,39:1 sobre `sesionBg` (Tarea 11, tarjeta de la serie
   // activa), y ambos fallan el 4,5:1 de texto normal aunque en el resto de la
-  // app (sobre `bg`/`surface`) sí llega. Este rojo es más claro y da 5,42:1 /
-  // 4,61:1 en esos mismos fondos: mismo rol de "acción que pierde datos",
-  // pero solo dentro de la sesión.
+  // app (sobre `bg`/`surface`) sí llega. Este rojo es más claro y da 6,07:1
+  // sobre `sesionBg` y 5,33:1 sobre `sesionSurface`: mismo rol de "acción que
+  // pierde datos", pero solo dentro de la sesión.
   sesionDanger: '#eb7478',
   // Rampa del mapa de asistencia: monótona y de pasos parejos (L 0,37 → 0,52 →
   // 0,69). El tono codifica la DURACIÓN del día, no la cantidad de series:
