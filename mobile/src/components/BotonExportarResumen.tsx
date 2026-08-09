@@ -3,7 +3,7 @@ import { useExportarResumen } from '@/hooks/useExportarResumen';
 import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
 
 export function BotonExportarResumen() {
-  const { exportar, generando, error } = useExportarResumen();
+  const { exportar, compartir, generando, error, archivoListo } = useExportarResumen();
 
   function elegirPeriodo() {
     Alert.alert('Exportar resumen', 'Elige el período que quieres exportar', [
@@ -27,6 +27,15 @@ export function BotonExportarResumen() {
           <Text style={styles.texto}>Exportar resumen</Text>
         )}
       </Pressable>
+      {archivoListo && (
+        <Pressable
+          style={styles.botonSecundario}
+          onPress={compartir}
+          accessibilityRole="button"
+        >
+          <Text style={styles.textoSecundario}>Compartir PDF</Text>
+        </Pressable>
+      )}
       {error && <Text style={styles.error}>{error}</Text>}
     </View>
   );
@@ -43,6 +52,17 @@ const styles = StyleSheet.create({
   },
   deshabilitado: { opacity: 0.6 },
   texto: { color: colors.ink, fontFamily: fonts.semibold, fontSize: fontSize.base },
+  botonSecundario: {
+    minHeight: 48,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.line,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    marginTop: spacing.sm,
+  },
+  textoSecundario: { color: colors.primaryText, fontFamily: fonts.medium, fontSize: fontSize.base },
   error: {
     color: colors.accent,
     fontFamily: fonts.regular,
