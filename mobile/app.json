@@ -1,23 +1,28 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "FitTrack",
+    "slug": "fittrack",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "mobile",
     "userInterfaceStyle": "dark",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.blasterlcsteam.fittrack",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#5f74e4",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.blasterlcsteam.fittrack"
     },
     "web": {
       "output": "static",
@@ -28,7 +33,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#0e0e10",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
@@ -40,6 +45,13 @@
       "typedRoutes": true,
       "reactCompiler": false
     },
-    "backgroundColor": "#0e0e10"
+    "backgroundColor": "#0e0e10",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c5fbb347-c7ca-4abd-bfc4-ecbce911737f"
+      }
+    },
+    "owner": "blasterlcs-team"
   }
 }
