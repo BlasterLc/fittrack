@@ -57,7 +57,10 @@ function useAuthGate() {
       // error de red pasajero no puede trabar el login entero.
       if (perfilCargando) return;
       if (perfil && !perfil.completo) {
-        router.replace('/perfil/asistente');
+        // `obligatorio` le dice al asistente que esconda «Omitir»: acá no
+        // hay otra pantalla a la que ir, así que no tiene sentido ofrecer
+        // saltarse un paso.
+        router.replace({ pathname: '/perfil/asistente', params: { obligatorio: '1' } });
       } else {
         router.replace('/');
       }

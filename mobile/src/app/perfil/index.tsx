@@ -142,7 +142,10 @@ export default function Perfil() {
         <Pressable
           style={styles.barraBoton}
           hitSlop={{ left: 12, right: 12 }}
-          onPress={() => router.back()}
+          // Sin guardia, esto revienta si se llega acá sin historial (p. ej.
+          // desde el asistente obligatorio tras crear una cuenta, que a su
+          // vez llegó por un router.replace() sin páginas atrás).
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
           accessibilityRole="button"
           accessibilityLabel="Volver"
         >

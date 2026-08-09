@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { HojaOpciones } from '@/components/HojaOpciones';
 import { CampoFecha } from '@/components/CampoFecha';
 import { MetasResumen } from '@/components/MetasResumen';
@@ -21,6 +21,20 @@ import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
 const ULTIMO_PASO = 4;
 
 /**
+ * "‹ Atrás" no siempre tiene a dónde volver: cuando el asistente se abre
+ * automáticamente tras crear una cuenta (`_layout.tsx` reemplaza el login por
+ * esta pantalla, no lo apila), no queda historial y `router.back()` revienta.
+ * En ese caso se manda a Perfil, que sí es un destino válido.
+ */
+function volver(router: ReturnType<typeof useRouter>) {
+  if (router.canGoBack()) {
+    router.back();
+  } else {
+    router.replace('/perfil');
+  }
+}
+
+/**
  * El asistente parte SIEMPRE de la ficha que ya está guardada.
  *
  * El PUT converge: un campo en null borra el valor guardado. Si el asistente
@@ -36,9 +50,15 @@ const ULTIMO_PASO = 4;
  */
 export default function Asistente() {
   const router = useRouter();
+  // Puesto por `_layout.tsx` cuando manda para acá tras crear una cuenta: no
+  // hay otra pantalla a la que ir, así que «Omitir» no tiene sentido — se
+  // esconde en vez de ofrecer un atajo hacia ningún lado.
+  const { obligatorio } = useLocalSearchParams<{ obligatorio?: string }>();
   const { data: perfil, isError, refetch } = usePerfil();
 
-  if (perfil) return <AsistentePasos inicial={borradorDesde(perfil)} />;
+  if (perfil) {
+    return <AsistentePasos inicial={borradorDesde(perfil)} obligatorio={obligatorio === '1'} />;
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -46,7 +66,7 @@ export default function Asistente() {
         <Pressable
           style={styles.barraBoton}
           hitSlop={{ left: 12, right: 12 }}
-          onPress={() => router.back()}
+          onPress={() => volver(router)}
           accessibilityRole="button"
           accessibilityLabel="Atrás"
         >
@@ -76,7 +96,13 @@ export default function Asistente() {
   );
 }
 
-function AsistentePasos({ inicial }: { inicial: FichaBorrador }) {
+function AsistentePasos({
+  inicial,
+  obligatorio,
+}: {
+  inicial: FichaBorrador;
+  obligatorio: boolean;
+}) {
   const router = useRouter();
   const [paso, setPaso] = useState(1);
   // Una sola vez, al montar. Nada de hidratar por efecto: ese efecto vuelve a
@@ -95,7 +121,7 @@ function AsistentePasos({ inicial }: { inicial: FichaBorrador }) {
   }
 
   function atras() {
-    if (paso === 1) router.back();
+    if (paso === 1) volver(router);
     else setPaso(paso - 1);
   }
 
@@ -111,7 +137,7 @@ function AsistentePasos({ inicial }: { inicial: FichaBorrador }) {
         >
           <Text style={styles.volver}>‹ Atrás</Text>
         </Pressable>
-        {paso <= ULTIMO_PASO && (
+        {paso <= ULTIMO_PASO && !obligatorio && (
           <Pressable
             style={styles.barraBoton}
             hitSlop={{ left: 12, right: 12 }}
