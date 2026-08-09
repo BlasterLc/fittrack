@@ -284,3 +284,25 @@ def _crear_entrenamiento_en(db_session, user_id, client_id, empezado):
     db_session.add(w)
     db_session.commit()
     return w
+
+
+def test_dashboard_muestra_el_peso_mas_reciente(client, auth_headers, db_session):
+    import datetime as dt
+
+    from api.models import WeightEntry
+
+    yo = "11111111-1111-1111-1111-111111111111"
+    db_session.add(
+        WeightEntry(
+            user_id=yo, kg=80.0,
+            recorded_at=dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=3),
+        )
+    )
+    db_session.add(
+        WeightEntry(user_id=yo, kg=78.4, recorded_at=dt.datetime.now(dt.timezone.utc))
+    )
+    db_session.commit()
+
+    cuerpo = client.get("/api/dashboard", headers=auth_headers).json()
+
+    assert cuerpo["peso"]["kg"] == 78.4
