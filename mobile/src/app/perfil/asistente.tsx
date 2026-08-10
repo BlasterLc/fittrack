@@ -108,8 +108,14 @@ function AsistentePasos({
   }
 
   function atras() {
-    if (paso === 1) volverOA(router, '/perfil');
-    else setPaso(paso - 1);
+    // Obligatorio significa obligatorio: en el paso 1 no hay perfil completo
+    // al que volver, así que ni el botón ni el back nativo pueden sacar de
+    // acá. Del paso 2 en adelante, retroceder un paso es normal y se permite.
+    if (paso === 1) {
+      if (!obligatorio) volverOA(router, '/perfil');
+    } else {
+      setPaso(paso - 1);
+    }
   }
 
   // El back nativo de Android (botón físico o gesto de borde) tiene que
@@ -121,15 +127,17 @@ function AsistentePasos({
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.barra}>
-        <Pressable
-          style={styles.barraBoton}
-          hitSlop={{ left: 12, right: 12 }}
-          onPress={atras}
-          accessibilityRole="button"
-          accessibilityLabel="Atrás"
-        >
-          <Text style={styles.volver}>‹ Atrás</Text>
-        </Pressable>
+        {!(obligatorio && paso === 1) && (
+          <Pressable
+            style={styles.barraBoton}
+            hitSlop={{ left: 12, right: 12 }}
+            onPress={atras}
+            accessibilityRole="button"
+            accessibilityLabel="Atrás"
+          >
+            <Text style={styles.volver}>‹ Atrás</Text>
+          </Pressable>
+        )}
         {paso <= ULTIMO_PASO && !obligatorio && (
           <Pressable
             style={styles.barraBoton}
