@@ -7,10 +7,10 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-  Alert,
   Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { alerta } from '@/lib/alerta';
 import {
   useAnalizarComida,
   useRegistrarComida,
@@ -46,7 +46,7 @@ export function RegistroComida({ onGuardado }: { onGuardado?: () => void }) {
   async function elegirFoto() {
     const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permiso.granted) {
-      Alert.alert('Permiso denegado', 'Necesitamos acceso a tus fotos para analizarlas.');
+      alerta('Permiso denegado', 'Necesitamos acceso a tus fotos para analizarlas.');
       return;
     }
     const r = await ImagePicker.launchImageLibraryAsync({
@@ -72,7 +72,7 @@ export function RegistroComida({ onGuardado }: { onGuardado?: () => void }) {
           ultimaSugerencia.current = sugerida;
           onGuardado?.();
         },
-        onError: (e) => Alert.alert('No se pudo guardar', (e as Error).message),
+        onError: (e) => alerta('No se pudo guardar', (e as Error).message),
       },
     );
   }

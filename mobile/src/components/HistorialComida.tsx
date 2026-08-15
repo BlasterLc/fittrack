@@ -8,9 +8,9 @@ import {
   ActivityIndicator,
   Modal,
   TextInput,
-  Alert,
   Platform,
 } from 'react-native';
+import { alerta } from '@/lib/alerta';
 import {
   useHistorialComida,
   useEditarComida,
@@ -94,7 +94,7 @@ export function HistorialComida() {
   }
 
   function confirmarEliminar(c: ComidaGuardada) {
-    Alert.alert('Eliminar comida', '¿Seguro que quieres eliminar esta comida?', [
+    alerta('Eliminar comida', '¿Seguro que quieres eliminar esta comida?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Eliminar', style: 'destructive', onPress: () => eliminar.mutate(c.id) },
     ]);
@@ -249,7 +249,7 @@ function HojaEditar({
       { id: comida.id, items, etiqueta, ...(loggedAt ? { logged_at: loggedAt.toISOString() } : {}) },
       {
         onSuccess: onCerrar,
-        onError: (e) => Alert.alert('No se pudo guardar', (e as Error).message),
+        onError: (e) => alerta('No se pudo guardar', (e as Error).message),
       },
     );
   }

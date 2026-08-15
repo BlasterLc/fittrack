@@ -5,7 +5,6 @@ import {
   TextInput,
   Pressable,
   ActivityIndicator,
-  Alert,
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,6 +12,7 @@ import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
 import Sortable from 'react-native-sortables';
+import { alerta } from '@/lib/alerta';
 import {
   useCrearRutina,
   useGuardarRutina,
@@ -71,7 +71,7 @@ export default function EditorRutina() {
           }
         })
         .catch(() => {
-          if (!cancelado) Alert.alert('No pudimos cargar los ejercicios elegidos');
+          if (!cancelado) alerta('No pudimos cargar los ejercicios elegidos');
         });
 
       return () => {
@@ -94,7 +94,7 @@ export default function EditorRutina() {
     const mutacion = esNueva ? crear : guardar;
     mutacion.mutate(body, {
       onSuccess: () => router.back(),
-      onError: (error: Error) => Alert.alert('No pudimos guardar', error.message),
+      onError: (error: Error) => alerta('No pudimos guardar', error.message),
     });
   }
 
@@ -103,7 +103,7 @@ export default function EditorRutina() {
       router.back();
       return;
     }
-    Alert.alert('Salir sin guardar', 'Se perderán los cambios de esta rutina.', [
+    alerta('Salir sin guardar', 'Se perderán los cambios de esta rutina.', [
       { text: 'Seguir editando', style: 'cancel' },
       { text: 'Salir', style: 'destructive', onPress: () => router.back() },
     ]);

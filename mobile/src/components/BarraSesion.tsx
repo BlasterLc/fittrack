@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { View, Text, Pressable, Alert, StyleSheet } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { alerta } from '@/lib/alerta';
 import {
   borrarBorrador,
   escribirBorrador,
@@ -66,7 +67,7 @@ export function BarraSesion() {
     const hechas = totalSeriesHechas(abierto);
 
     if (hechas === 0) {
-      Alert.alert(
+      alerta(
         'Entrenamiento sin terminar',
         'Quedó abierto un entrenamiento de otro día y no alcanzaste a completar ninguna serie, así que no hay nada que guardar.',
         [
@@ -77,6 +78,12 @@ export function BarraSesion() {
       return;
     }
 
+    // PENDIENTE (web): este diálogo tiene TRES respuestas y `alerta()` solo
+    // sabe traducir dos, porque en el navegador confirm() es sí/no. Mapearlo a
+    // ciegas dejaría "Descartar" como la opción de "aceptar" y borraría el
+    // entrenamiento del usuario, así que por ahora sigue con Alert.alert: en
+    // nativo funciona igual que siempre y en web queda mudo, como está hoy.
+    // La salida es un modal propio con los tres botones, no este wrapper.
     Alert.alert(
       'Entrenamiento sin terminar',
       `Quedó abierto un entrenamiento de otro día con ${hechas} ${hechas === 1 ? 'serie' : 'series'}. Puedes guardar lo que alcanzaste a hacer o descartarlo.`,
