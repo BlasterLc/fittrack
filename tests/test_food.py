@@ -176,3 +176,59 @@ def test_log_con_logged_at_de_mas_de_7_dias_da_422(client, auth_headers):
         headers=auth_headers,
     )
     assert r.status_code == 422
+
+
+def test_patch_cambia_el_logged_at_dentro_de_la_ventana(client, auth_headers, db_session):
+    import datetime as dt
+
+    from api.models import Meal
+
+    creada = client.post("/api/food/log", json={"items": _ITEMS}, headers=auth_headers).json()
+    ayer = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=1)
+
+    r = client.patch(
+        f"/api/food/{creada['id']}",
+        json={"items": _ITEMS, "logged_at": ayer.isoformat()},
+        headers=auth_headers,
+    )
+    assert r.status_code == 200
+    actualizada = db_session.get(Meal, creada["id"])
+    assert abs((actualizada.logged_at - ayer).total_seconds()) < 1
+
+
+def test_patch_con_logged_at_futuro_da_422(client, auth_headers):
+    import datetime as dt
+
+    creada = client.post("/api/food/log", json={"items": _ITEMS}, headers=auth_headers).json()
+    manana = dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=1)
+
+    r = client.patch(
+        f"/api/food/{creada['id']}",
+        json={"items": _ITEMS, "logged_at": manana.isoformat()},
+        headers=auth_headers,
+    )
+    assert r.status_code == 422
+
+
+def test_patch_sin_logged_at_no_toca_una_comida_vieja(client, auth_headers, db_session):
+    import datetime as dt
+
+    from api.models import Meal, MealItem
+
+    vieja = Meal(
+        user_id=UUID_PRUEBA,
+        logged_at=dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=30),
+    )
+    vieja.items = [MealItem(nombre="X", calorias=1, prot_g=1, carbs_g=1, fat_g=1)]
+    db_session.add(vieja)
+    db_session.commit()
+    fecha_original = vieja.logged_at
+
+    r = client.patch(
+        f"/api/food/{vieja.id}",
+        json={"items": _ITEMS, "etiqueta": "Cena"},
+        headers=auth_headers,
+    )
+    assert r.status_code == 200
+    db_session.refresh(vieja)
+    assert vieja.logged_at == fecha_original

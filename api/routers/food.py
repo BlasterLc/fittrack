@@ -126,6 +126,7 @@ def editar(
     if comida is None or comida.user_id != user_id:
         raise HTTPException(status_code=404, detail="Comida no encontrada")
     comida.etiqueta = body.etiqueta
+    comida.logged_at = _resolver_logged_at(body.logged_at, comida.logged_at)
     comida.items = [
         MealItem(
             nombre=i.nombre,
