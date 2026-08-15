@@ -12,14 +12,23 @@ const SecureStoreAdapter = {
   removeItem: (key: string) => SecureStore.deleteItemAsync(key),
 };
 
+// `Platform.OS === 'web'` también da true durante `expo export --platform
+// web`, que renderiza el árbol una vez en Node.js para generar el HTML
+// estático — ahí no existe `localStorage` (global del navegador). Sin esta
+// guarda, createClient() revienta al construirse: intenta recuperar la
+// sesión de forma eager, y no hay ninguna sesión real que recuperar en un
+// proceso de build de todos modos.
+const localStorageDisponible = typeof localStorage !== 'undefined';
+
 const LocalStorageAdapter = {
-  getItem: (key: string) => Promise.resolve(localStorage.getItem(key)),
+  getItem: (key: string) =>
+    Promise.resolve(localStorageDisponible ? localStorage.getItem(key) : null),
   setItem: (key: string, value: string) => {
-    localStorage.setItem(key, value);
+    if (localStorageDisponible) localStorage.setItem(key, value);
     return Promise.resolve();
   },
   removeItem: (key: string) => {
-    localStorage.removeItem(key);
+    if (localStorageDisponible) localStorage.removeItem(key);
     return Promise.resolve();
   },
 };
