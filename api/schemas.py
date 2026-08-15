@@ -127,6 +127,7 @@ class AnalizarComidaResponse(BaseModel):
 class RegistrarComidaRequest(BaseModel):
     items: list[ItemComida]
     etiqueta: str | None = None
+    logged_at: datetime | None = None
 
 
 class ItemComidaOut(ItemComida):

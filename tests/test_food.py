@@ -136,3 +136,43 @@ def test_delete_comida_de_otro_da_404(client, auth_headers, db_session):
     r = client.delete(f"/api/food/{ajena.id}", headers=auth_headers)
     assert r.status_code == 404
     assert db_session.get(Meal, ajena.id) is not None
+
+
+def test_log_con_logged_at_dentro_de_la_ventana_lo_respeta(client, auth_headers, db_session):
+    import datetime as dt
+
+    from api.models import Meal
+
+    ayer = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=1)
+    r = client.post(
+        "/api/food/log",
+        json={"items": _ITEMS, "logged_at": ayer.isoformat()},
+        headers=auth_headers,
+    )
+    assert r.status_code == 200
+    guardada = db_session.query(Meal).one()
+    assert abs((guardada.logged_at - ayer).total_seconds()) < 1
+
+
+def test_log_con_logged_at_futuro_da_422(client, auth_headers):
+    import datetime as dt
+
+    manana = dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=1)
+    r = client.post(
+        "/api/food/log",
+        json={"items": _ITEMS, "logged_at": manana.isoformat()},
+        headers=auth_headers,
+    )
+    assert r.status_code == 422
+
+
+def test_log_con_logged_at_de_mas_de_7_dias_da_422(client, auth_headers):
+    import datetime as dt
+
+    hace_mucho = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=8)
+    r = client.post(
+        "/api/food/log",
+        json={"items": _ITEMS, "logged_at": hace_mucho.isoformat()},
+        headers=auth_headers,
+    )
+    assert r.status_code == 422

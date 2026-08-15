@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
@@ -14,6 +14,27 @@ from api.schemas import (
     RegistrarComidaRequest,
 )
 from api.services import comida as servicio_comida
+
+VENTANA_DIAS_LOGGED_AT = 7
+
+
+def _resolver_logged_at(logged_at: datetime | None, actual: datetime) -> datetime:
+    """`actual` es el valor a mantener si el cliente no manda logged_at:
+    "ahora" al crear, el valor ya guardado al editar."""
+    if logged_at is None:
+        return actual
+    ahora = datetime.now(timezone.utc)
+    if logged_at.tzinfo is None:
+        logged_at = logged_at.replace(tzinfo=timezone.utc)
+    if logged_at > ahora:
+        raise HTTPException(status_code=422, detail="La fecha no puede ser futura.")
+    if logged_at < ahora - timedelta(days=VENTANA_DIAS_LOGGED_AT):
+        raise HTTPException(
+            status_code=422,
+            detail=f"La fecha no puede tener más de {VENTANA_DIAS_LOGGED_AT} días.",
+        )
+    return logged_at
+
 
 router = APIRouter(
     prefix="/api/food",
@@ -39,7 +60,7 @@ def registrar(
     comida = Meal(
         user_id=user_id,
         etiqueta=body.etiqueta,
-        logged_at=datetime.now(timezone.utc),
+        logged_at=_resolver_logged_at(body.logged_at, datetime.now(timezone.utc)),
     )
     comida.items = [
         MealItem(
