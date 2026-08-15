@@ -1,10 +1,26 @@
+import os
+
 from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
 from api.auth import get_current_user
 from api.routers import catalog, dashboard, entrenamientos, food, perfil, peso, progreso, routines
 
 app = FastAPI(title="FitTrack API")
+
+# WEB_ORIGIN se lee aparte de Config (que exige DATABASE_URL/SUPABASE_URL/etc.
+# para instanciarse) porque el middleware se registra al importar el modulo,
+# antes de que exista una request de la que depender. Sin la variable seteada
+# (como en local/tests hoy), el middleware simplemente no se agrega.
+_web_origin = os.getenv("WEB_ORIGIN")
+if _web_origin:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[_web_origin],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 app.include_router(catalog.router)
 app.include_router(dashboard.router)
 app.include_router(entrenamientos.router)
