@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable } from 'react-native';
+import { Platform, Pressable } from 'react-native';
 // Ruta confirmada contra node_modules/@expo/ui/package.json: el paquete
 // exporta "./community/datetime-picker" (no "./drop-in-replacements").
 import DateTimePicker from '@expo/ui/community/datetime-picker';
@@ -20,8 +20,26 @@ export function CampoFecha({
   children: React.ReactNode;
 }) {
   const [abierto, setAbierto] = useState(false);
-
   const hoy = new Date();
+
+  // El input HTML nativo del navegador no tiene la trampa de UTC del picker
+  // de @expo/ui (entrega YYYY-MM-DD directo, sin instante de por medio), así
+  // que acá no hace falta aISO ni el manejo de UTC del resto del archivo.
+  if (Platform.OS === 'web') {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const minimo = `${hoy.getFullYear() - 100}-${pad(hoy.getMonth() + 1)}-${pad(hoy.getDate())}`;
+    const maximo = `${hoy.getFullYear() - 14}-${pad(hoy.getMonth() + 1)}-${pad(hoy.getDate())}`;
+    return (
+      <input
+        type="date"
+        value={valor ?? ''}
+        min={minimo}
+        max={maximo}
+        onChange={(e) => e.target.value && onCambio(e.target.value)}
+      />
+    );
+  }
+
   // Los mismos limites que valida el backend (14 a 100 anios): si el selector
   // no los pusiera, el usuario elegiria una fecha y recien ahi veria el 422.
   const minima = new Date(hoy.getFullYear() - 100, hoy.getMonth(), hoy.getDate());
