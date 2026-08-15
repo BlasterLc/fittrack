@@ -9,6 +9,7 @@ import {
   Modal,
   TextInput,
   Alert,
+  Platform,
 } from 'react-native';
 import {
   useHistorialComida,
@@ -266,18 +267,20 @@ function HojaEditar({
             <Text style={styles.label}>Etiqueta</Text>
             <TextInput style={styles.input} value={etiqueta} onChangeText={setEtiqueta} />
 
-            <View style={styles.acciones}>
-              <CampoFechaHora valor={valorPicker} onCambio={setLoggedAt}>
-                <Text style={styles.editar}>
-                  {loggedAt ? `Se guardará para: ${formatoFechaHora(loggedAt)}` : 'Cambiar fecha y hora'}
-                </Text>
-              </CampoFechaHora>
-              {loggedAt && (
-                <Pressable style={styles.toqueFecha} onPress={() => setLoggedAt(null)} hitSlop={8}>
-                  <Text style={styles.editar}>Deshacer</Text>
-                </Pressable>
-              )}
-            </View>
+            {Platform.OS !== 'web' && (
+              <View style={styles.acciones}>
+                <CampoFechaHora valor={valorPicker} onCambio={setLoggedAt}>
+                  <Text style={styles.editar}>
+                    {loggedAt ? `Se guardará para: ${formatoFechaHora(loggedAt)}` : 'Cambiar fecha y hora'}
+                  </Text>
+                </CampoFechaHora>
+                {loggedAt && (
+                  <Pressable style={styles.toqueFecha} onPress={() => setLoggedAt(null)} hitSlop={8}>
+                    <Text style={styles.editar}>Deshacer</Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
             <View style={styles.filaBotones}>
               <Pressable style={[styles.boton, styles.secundario]} onPress={onCerrar}>
                 <Text style={styles.botonTextoSec} numberOfLines={1}>
