@@ -20,7 +20,7 @@ import {
 } from '@/hooks/useComida';
 import { useDashboard } from '@/hooks/useDashboard';
 import { EditorItems } from '@/components/EditorItems';
-import { CampoFechaHora } from '@/components/CampoFechaHora';
+import { CampoFechaHora, VENTANA_DIAS } from '@/components/CampoFechaHora';
 import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
 
 type Dia = {
@@ -238,7 +238,7 @@ function HojaEditar({
   // mostrando esa fecha (queda fuera de su propio minimumDate). Es solo el
   // valor de arranque del selector — mientras loggedAt siga en null no se
   // manda nada y la fecha real de la comida no se toca.
-  const piso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const piso = new Date(Date.now() - VENTANA_DIAS * 24 * 60 * 60 * 1000);
   const original = comida ? new Date(comida.logged_at) : new Date();
   const valorPicker = loggedAt ?? (original < piso ? piso : original);
 
@@ -273,7 +273,7 @@ function HojaEditar({
                 </Text>
               </CampoFechaHora>
               {loggedAt && (
-                <Pressable onPress={() => setLoggedAt(null)} hitSlop={8}>
+                <Pressable style={styles.toqueFecha} onPress={() => setLoggedAt(null)} hitSlop={8}>
                   <Text style={styles.editar}>Deshacer</Text>
                 </Pressable>
               )}
@@ -363,6 +363,7 @@ const styles = StyleSheet.create({
   itemLinea: { color: colors.muted, fontFamily: fonts.regular, fontSize: fontSize.sm },
   acciones: { flexDirection: 'row', gap: spacing.xl, marginTop: spacing.sm },
   editar: { color: colors.primaryText, fontFamily: fonts.medium, fontSize: fontSize.base },
+  toqueFecha: { minHeight: 48, justifyContent: 'center' },
   eliminar: { color: colors.danger, fontFamily: fonts.medium, fontSize: fontSize.base },
   mesAnterior: {
     paddingVertical: spacing.md,

@@ -63,11 +63,12 @@ export function RegistroComida({ onGuardado }: { onGuardado?: () => void }) {
       { items, etiqueta, ...(loggedAt ? { logged_at: loggedAt.toISOString() } : {}) },
       {
         onSuccess: () => {
+          const sugerida = etiquetaPorHora();
           setTexto('');
           setItems(null);
-          setEtiqueta(etiquetaPorHora());
+          setEtiqueta(sugerida);
           setLoggedAt(null);
-          ultimaSugerencia.current = etiquetaPorHora();
+          ultimaSugerencia.current = sugerida;
           onGuardado?.();
         },
         onError: (e) => Alert.alert('No se pudo guardar', (e as Error).message),
@@ -118,7 +119,7 @@ export function RegistroComida({ onGuardado }: { onGuardado?: () => void }) {
               </Text>
             </CampoFechaHora>
             {loggedAt && (
-              <Pressable onPress={() => cambiarFecha(null)} hitSlop={8}>
+              <Pressable style={styles.toqueFecha} onPress={() => cambiarFecha(null)} hitSlop={8}>
                 <Text style={styles.enlaceFecha}>Usar ahora</Text>
               </Pressable>
             )}
@@ -171,4 +172,5 @@ const styles = StyleSheet.create({
   resultado: { gap: spacing.md, marginTop: spacing.sm },
   label: { color: colors.muted, fontFamily: fonts.regular, fontSize: fontSize.sm },
   enlaceFecha: { color: colors.primaryText, fontFamily: fonts.medium, fontSize: fontSize.sm },
+  toqueFecha: { minHeight: 48, justifyContent: 'center' },
 });

@@ -29,6 +29,8 @@ def test_analyze_devuelve_los_items(client, auth_headers, monkeypatch):
 
 
 def test_log_persiste_la_comida(client, auth_headers, db_session):
+    import datetime as dt
+
     from api.models import Meal
 
     r = client.post(
@@ -44,6 +46,7 @@ def test_log_persiste_la_comida(client, auth_headers, db_session):
     guardada = db_session.query(Meal).one()
     assert guardada.user_id == UUID_PRUEBA
     assert len(guardada.items) == 1
+    assert abs((guardada.logged_at - dt.datetime.now(dt.timezone.utc)).total_seconds()) < 5
 
 
 def test_historial_filtra_por_rango_y_usuario(client, auth_headers, db_session):
@@ -169,7 +172,7 @@ def test_log_con_logged_at_futuro_da_422(client, auth_headers):
 def test_log_con_logged_at_de_mas_de_7_dias_da_422(client, auth_headers):
     import datetime as dt
 
-    hace_mucho = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=8)
+    hace_mucho = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=10)
     r = client.post(
         "/api/food/log",
         json={"items": _ITEMS, "logged_at": hace_mucho.isoformat()},
@@ -232,3 +235,17 @@ def test_patch_sin_logged_at_no_toca_una_comida_vieja(client, auth_headers, db_s
     assert r.status_code == 200
     db_session.refresh(vieja)
     assert vieja.logged_at == fecha_original
+
+
+def test_patch_con_logged_at_de_mas_de_7_dias_da_422(client, auth_headers):
+    import datetime as dt
+
+    creada = client.post("/api/food/log", json={"items": _ITEMS}, headers=auth_headers).json()
+    hace_mucho = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=10)
+
+    r = client.patch(
+        f"/api/food/{creada['id']}",
+        json={"items": _ITEMS, "logged_at": hace_mucho.isoformat()},
+        headers=auth_headers,
+    )
+    assert r.status_code == 422
