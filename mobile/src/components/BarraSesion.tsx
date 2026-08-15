@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { View, Text, Pressable, Alert, StyleSheet } from 'react-native';
+import { View, Text, Pressable, Alert, Platform, StyleSheet } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { alerta } from '@/lib/alerta';
 import {
@@ -78,35 +78,39 @@ export function BarraSesion() {
       return;
     }
 
-    // PENDIENTE (web): este diálogo tiene TRES respuestas y `alerta()` solo
-    // sabe traducir dos, porque en el navegador confirm() es sí/no. Mapearlo a
-    // ciegas dejaría "Descartar" como la opción de "aceptar" y borraría el
-    // entrenamiento del usuario, así que por ahora sigue con Alert.alert: en
-    // nativo funciona igual que siempre y en web queda mudo, como está hoy.
-    // La salida es un modal propio con los tres botones, no este wrapper.
-    Alert.alert(
-      'Entrenamiento sin terminar',
-      `Quedó abierto un entrenamiento de otro día con ${hechas} ${hechas === 1 ? 'serie' : 'series'}. Puedes guardar lo que alcanzaste a hacer o descartarlo.`,
-      [
-        { text: 'Ahora no', style: 'cancel' },
-        { text: 'Descartar', style: 'destructive', onPress: olvidar },
-        {
-          text: 'Guardar lo hecho',
-          onPress: async () => {
-            // El fin es la última serie, nunca ahora. Con `terminadoEn` puesto,
-            // la pantalla de sesión abre directo en el resumen.
-            const cerrado = { ...abierto, terminadoEn: finDelBorrador(abierto) };
-            setBorrador(cerrado);
-            // Se espera la escritura antes de navegar: la pantalla de sesión
-            // lee del disco al montar, y si ganara la carrera abriría el
-            // borrador viejo en modo entrenar, que es justo lo que un
-            // entrenamiento de otro día no puede hacer.
-            await escribirBorrador(cerrado);
-            router.push('/sesion');
-          },
-        },
-      ],
-    );
+    const guardarLoHecho = async () => {
+      // El fin es la última serie, nunca ahora. Con `terminadoEn` puesto,
+      // la pantalla de sesión abre directo en el resumen.
+      const cerrado = { ...abierto, terminadoEn: finDelBorrador(abierto) };
+      setBorrador(cerrado);
+      // Se espera la escritura antes de navegar: la pantalla de sesión
+      // lee del disco al montar, y si ganara la carrera abriría el
+      // borrador viejo en modo entrenar, que es justo lo que un
+      // entrenamiento de otro día no puede hacer.
+      await escribirBorrador(cerrado);
+      router.push('/sesion');
+    };
+
+    const mensaje = `Quedó abierto un entrenamiento de otro día con ${hechas} ${hechas === 1 ? 'serie' : 'series'}. Puedes guardar lo que alcanzaste a hacer o descartarlo.`;
+
+    // Este diálogo tiene TRES respuestas y `alerta()` solo sabe traducir dos,
+    // porque en el navegador confirm() es sí/no. En vez de dejar "Descartar"
+    // como la opción de "aceptar" (borraría el entrenamiento sin querer), en
+    // web se resuelve directo con confirm(): aceptar guarda lo hecho —la
+    // opción segura, que no pierde datos— y cancelar no hace nada. Decisión
+    // de producto: en web, "Descartar" queda sin acceso desde este diálogo.
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Entrenamiento sin terminar\n\n${mensaje}`)) {
+        void guardarLoHecho();
+      }
+      return;
+    }
+
+    Alert.alert('Entrenamiento sin terminar', mensaje, [
+      { text: 'Ahora no', style: 'cancel' },
+      { text: 'Descartar', style: 'destructive', onPress: olvidar },
+      { text: 'Guardar lo hecho', onPress: guardarLoHecho },
+    ]);
   }
 
   const varado = enCurso && !deHoy;
