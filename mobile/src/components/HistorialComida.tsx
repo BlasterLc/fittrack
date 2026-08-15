@@ -14,11 +14,13 @@ import {
   useHistorialComida,
   useEditarComida,
   useEliminarComida,
+  formatoFechaHora,
   type ComidaGuardada,
   type ItemComida,
 } from '@/hooks/useComida';
 import { useDashboard } from '@/hooks/useDashboard';
 import { EditorItems } from '@/components/EditorItems';
+import { CampoFechaHora } from '@/components/CampoFechaHora';
 import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
 
 type Dia = {
@@ -214,6 +216,7 @@ function HojaEditar({
   const editar = useEditarComida();
   const [items, setItems] = useState<ItemComida[]>([]);
   const [etiqueta, setEtiqueta] = useState('');
+  const [loggedAt, setLoggedAt] = useState<Date | null>(null);
 
   useEffect(() => {
     if (comida) {
@@ -227,13 +230,22 @@ function HojaEditar({
         })),
       );
       setEtiqueta(comida.etiqueta ?? '');
+      setLoggedAt(null);
     }
   }, [comida]);
+
+  // Piso de 7 días: si la comida ya es más vieja, el picker no puede abrir
+  // mostrando esa fecha (queda fuera de su propio minimumDate). Es solo el
+  // valor de arranque del selector — mientras loggedAt siga en null no se
+  // manda nada y la fecha real de la comida no se toca.
+  const piso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const original = comida ? new Date(comida.logged_at) : new Date();
+  const valorPicker = loggedAt ?? (original < piso ? piso : original);
 
   function guardar() {
     if (!comida) return;
     editar.mutate(
-      { id: comida.id, items, etiqueta },
+      { id: comida.id, items, etiqueta, ...(loggedAt ? { logged_at: loggedAt.toISOString() } : {}) },
       {
         onSuccess: onCerrar,
         onError: (e) => Alert.alert('No se pudo guardar', (e as Error).message),
@@ -253,6 +265,19 @@ function HojaEditar({
             <EditorItems items={items} onChange={setItems} />
             <Text style={styles.label}>Etiqueta</Text>
             <TextInput style={styles.input} value={etiqueta} onChangeText={setEtiqueta} />
+
+            <View style={styles.acciones}>
+              <CampoFechaHora valor={valorPicker} onCambio={setLoggedAt}>
+                <Text style={styles.editar}>
+                  {loggedAt ? `Se guardará para: ${formatoFechaHora(loggedAt)}` : 'Cambiar fecha y hora'}
+                </Text>
+              </CampoFechaHora>
+              {loggedAt && (
+                <Pressable onPress={() => setLoggedAt(null)} hitSlop={8}>
+                  <Text style={styles.editar}>Deshacer</Text>
+                </Pressable>
+              )}
+            </View>
             <View style={styles.filaBotones}>
               <Pressable style={[styles.boton, styles.secundario]} onPress={onCerrar}>
                 <Text style={styles.botonTextoSec} numberOfLines={1}>
