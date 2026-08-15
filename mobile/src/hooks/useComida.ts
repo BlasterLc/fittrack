@@ -19,7 +19,7 @@ export function useAnalizarComida() {
 export function useRegistrarComida() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: { items: ItemComida[]; etiqueta?: string }) =>
+    mutationFn: (body: { items: ItemComida[]; etiqueta?: string; logged_at?: string }) =>
       apiPost<{ id: number }>('/api/food/log', body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
@@ -48,10 +48,16 @@ export function useHistorialComida(desdeISO: string, hastaISO: string) {
 export function useEditarComida() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: { id: number; items: ItemComida[]; etiqueta?: string | null }) =>
+    mutationFn: (body: {
+      id: number;
+      items: ItemComida[];
+      etiqueta?: string | null;
+      logged_at?: string;
+    }) =>
       apiPatch<ComidaGuardada>(`/api/food/${body.id}`, {
         items: body.items,
         etiqueta: body.etiqueta ?? null,
+        ...(body.logged_at ? { logged_at: body.logged_at } : {}),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
@@ -79,4 +85,15 @@ export function etiquetaPorHora(fecha = new Date()): string {
   if (h >= 15 && h < 20) return 'Once';
   if (h >= 20) return 'Cena';
   return 'Colación';
+}
+
+// Ej: "mar., 14 ago, 21:40".
+export function formatoFechaHora(fecha: Date): string {
+  return fecha.toLocaleString('es-CL', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
