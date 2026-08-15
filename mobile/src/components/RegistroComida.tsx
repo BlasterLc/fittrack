@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -14,17 +14,28 @@ import {
   useAnalizarComida,
   useRegistrarComida,
   etiquetaPorHora,
+  formatoFechaHora,
   type ItemComida,
 } from '@/hooks/useComida';
 import { EditorItems } from '@/components/EditorItems';
+import { CampoFechaHora } from '@/components/CampoFechaHora';
 import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
 
 export function RegistroComida({ onGuardado }: { onGuardado?: () => void }) {
   const [texto, setTexto] = useState('');
   const [items, setItems] = useState<ItemComida[] | null>(null);
   const [etiqueta, setEtiqueta] = useState(etiquetaPorHora());
+  const [loggedAt, setLoggedAt] = useState<Date | null>(null);
+  const ultimaSugerencia = useRef(etiqueta);
   const analizar = useAnalizarComida();
   const registrar = useRegistrarComida();
+
+  function cambiarFecha(fecha: Date | null) {
+    setLoggedAt(fecha);
+    const sugerida = etiquetaPorHora(fecha ?? new Date());
+    if (etiqueta === ultimaSugerencia.current) setEtiqueta(sugerida);
+    ultimaSugerencia.current = sugerida;
+  }
 
   function analizarTexto() {
     if (!texto.trim()) return;
@@ -49,12 +60,14 @@ export function RegistroComida({ onGuardado }: { onGuardado?: () => void }) {
   function guardar() {
     if (!items || items.length === 0) return;
     registrar.mutate(
-      { items, etiqueta },
+      { items, etiqueta, ...(loggedAt ? { logged_at: loggedAt.toISOString() } : {}) },
       {
         onSuccess: () => {
           setTexto('');
           setItems(null);
           setEtiqueta(etiquetaPorHora());
+          setLoggedAt(null);
+          ultimaSugerencia.current = etiquetaPorHora();
           onGuardado?.();
         },
         onError: (e) => Alert.alert('No se pudo guardar', (e as Error).message),
@@ -97,6 +110,20 @@ export function RegistroComida({ onGuardado }: { onGuardado?: () => void }) {
           <EditorItems items={items} onChange={setItems} />
           <Text style={styles.label}>Etiqueta</Text>
           <TextInput style={styles.input} value={etiqueta} onChangeText={setEtiqueta} />
+
+          <View style={styles.fila}>
+            <CampoFechaHora valor={loggedAt ?? new Date()} onCambio={cambiarFecha}>
+              <Text style={styles.enlaceFecha}>
+                {loggedAt ? `Guardar para: ${formatoFechaHora(loggedAt)}` : 'Cambiar fecha y hora'}
+              </Text>
+            </CampoFechaHora>
+            {loggedAt && (
+              <Pressable onPress={() => cambiarFecha(null)} hitSlop={8}>
+                <Text style={styles.enlaceFecha}>Usar ahora</Text>
+              </Pressable>
+            )}
+          </View>
+
           <Pressable
             style={[styles.boton, styles.primario, { marginTop: spacing.md }]}
             onPress={guardar}
@@ -143,4 +170,5 @@ const styles = StyleSheet.create({
   error: { color: colors.accent, fontFamily: fonts.regular, fontSize: fontSize.sm },
   resultado: { gap: spacing.md, marginTop: spacing.sm },
   label: { color: colors.muted, fontFamily: fonts.regular, fontSize: fontSize.sm },
+  enlaceFecha: { color: colors.primaryText, fontFamily: fonts.medium, fontSize: fontSize.sm },
 });
