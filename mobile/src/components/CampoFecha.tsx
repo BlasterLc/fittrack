@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Platform, Pressable } from 'react-native';
+import { Platform, Pressable, View } from 'react-native';
 // Ruta confirmada contra node_modules/@expo/ui/package.json: el paquete
 // exporta "./community/datetime-picker" (no "./drop-in-replacements").
 import DateTimePicker from '@expo/ui/community/datetime-picker';
-import { colors } from '@/theme/tokens';
+import { colors, fonts, fontSize, spacing } from '@/theme/tokens';
 
 // El selector va aislado en su propio componente por una trampa de Android:
 // con presentation="dialog" (el valor por defecto) el dialogo se abre AL
@@ -29,14 +29,23 @@ export function CampoFecha({
     const pad = (n: number) => String(n).padStart(2, '0');
     const minimo = `${hoy.getFullYear() - 100}-${pad(hoy.getMonth() + 1)}-${pad(hoy.getDate())}`;
     const maximo = `${hoy.getFullYear() - 14}-${pad(hoy.getMonth() + 1)}-${pad(hoy.getDate())}`;
+    // `children` es la fila con la etiqueta y el valor ya elegido (p. ej.
+    // "Fecha de nacimiento" / "9 de febrero de 2000"): la rama web la
+    // ignoraba entero, así que el campo aparecía sin etiqueta. Va arriba,
+    // de solo lectura, y el input real del navegador debajo con los tokens
+    // del tema para que no desentone con el resto de la pantalla.
     return (
-      <input
-        type="date"
-        value={valor ?? ''}
-        min={minimo}
-        max={maximo}
-        onChange={(e) => e.target.value && onCambio(e.target.value)}
-      />
+      <View>
+        {children}
+        <input
+          type="date"
+          value={valor ?? ''}
+          min={minimo}
+          max={maximo}
+          onChange={(e) => e.target.value && onCambio(e.target.value)}
+          style={estiloInputWeb}
+        />
+      </View>
     );
   }
 
@@ -89,3 +98,19 @@ function aISO(fecha: Date): string {
   const dia = String(fecha.getUTCDate()).padStart(2, '0');
   return `${fecha.getUTCFullYear()}-${mes}-${dia}`;
 }
+
+// `<input>` es un elemento DOM, no un componente de React Native: su `style`
+// toma CSS plano (camelCase), no un StyleSheet de RN.
+const estiloInputWeb: React.CSSProperties = {
+  width: '100%',
+  minHeight: 48,
+  marginTop: spacing.xs,
+  padding: `0 ${spacing.md}px`,
+  borderRadius: 10,
+  border: `1px solid ${colors.line}`,
+  backgroundColor: colors.surface,
+  color: colors.ink,
+  fontFamily: fonts.regular,
+  fontSize: fontSize.base,
+  boxSizing: 'border-box',
+};

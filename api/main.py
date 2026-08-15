@@ -14,7 +14,11 @@ app = FastAPI(title="FitTrack API")
 # antes de que exista una request de la que depender. Sin la variable seteada
 # (como en local/tests hoy), el middleware simplemente no se agrega.
 _web_origin = os.getenv("WEB_ORIGIN")
+# rstrip: una barra final en la variable de Railway ("https://x.com/" en vez
+# de "https://x.com") no matchea el header Origin del navegador, que nunca la
+# trae, y CORS se rompe en silencio.
 if _web_origin:
+    _web_origin = _web_origin.rstrip("/")
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[_web_origin],
