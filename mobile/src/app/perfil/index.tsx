@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Pressable, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
+import { alerta } from '@/lib/alerta';
 import { HojaOpciones } from '@/components/HojaOpciones';
 import { CampoFecha } from '@/components/CampoFecha';
 import { MetasResumen } from '@/components/MetasResumen';
@@ -350,7 +351,7 @@ export default function Perfil() {
             style={styles.salir}
             accessibilityRole="button"
             onPress={() =>
-              Alert.alert('Cerrar sesión', '¿Seguro que quieres cerrar sesión?', [
+              alerta('Cerrar sesión', '¿Seguro que quieres cerrar sesión?', [
                 { text: 'Cancelar', style: 'cancel' },
                 {
                   text: 'Cerrar sesión',

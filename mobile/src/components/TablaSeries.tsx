@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View, Text, TextInput, Pressable, Alert, StyleSheet } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
+import { alerta } from '@/lib/alerta';
 import {
   formatoKg,
   leerNumero,
@@ -60,7 +61,7 @@ export function TablaSeries({
   }
 
   function eliminar(indice: number) {
-    Alert.alert(
+    alerta(
       `Eliminar la serie ${indice + 1}`,
       'Se quita de la lista de este ejercicio.',
       [

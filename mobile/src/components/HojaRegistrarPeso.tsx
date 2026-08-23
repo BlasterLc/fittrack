@@ -6,9 +6,9 @@ import {
   Modal,
   ScrollView,
   ActivityIndicator,
-  Alert,
   StyleSheet,
 } from 'react-native';
+import { alerta } from '@/lib/alerta';
 import { FilaNumero } from '@/components/CamposPerfil';
 import { useRegistrarPeso } from '@/hooks/useProgreso';
 import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
@@ -32,7 +32,7 @@ export function HojaRegistrarPeso({
     if (kg === null) return;
     registrar.mutate(kg, {
       onSuccess: cerrarYLimpiar,
-      onError: (e) => Alert.alert('No se pudo guardar', (e as Error).message),
+      onError: (e) => alerta('No se pudo guardar', (e as Error).message),
     });
   }
 

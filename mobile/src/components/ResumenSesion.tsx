@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View, Text, Pressable, ScrollView, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, Pressable, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
+import { alerta } from '@/lib/alerta';
 import { Segmentado } from './Segmentado';
 import {
   finDelBorrador,
@@ -69,7 +70,7 @@ export function ResumenSesion({
   const agregados = hechos.filter((e) => e.agregado);
 
   function confirmarDescartar() {
-    Alert.alert(
+    alerta(
       'Descartar entrenamiento',
       'Se va a perder todo lo que registraste. ¿Descartar igual?',
       [

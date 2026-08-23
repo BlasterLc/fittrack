@@ -8,8 +8,9 @@ import {
   ActivityIndicator,
   Modal,
   TextInput,
-  Alert,
+  Platform,
 } from 'react-native';
+import { alerta } from '@/lib/alerta';
 import {
   useHistorialComida,
   useEditarComida,
@@ -93,7 +94,7 @@ export function HistorialComida() {
   }
 
   function confirmarEliminar(c: ComidaGuardada) {
-    Alert.alert('Eliminar comida', '¿Seguro que quieres eliminar esta comida?', [
+    alerta('Eliminar comida', '¿Seguro que quieres eliminar esta comida?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Eliminar', style: 'destructive', onPress: () => eliminar.mutate(c.id) },
     ]);
@@ -248,7 +249,7 @@ function HojaEditar({
       { id: comida.id, items, etiqueta, ...(loggedAt ? { logged_at: loggedAt.toISOString() } : {}) },
       {
         onSuccess: onCerrar,
-        onError: (e) => Alert.alert('No se pudo guardar', (e as Error).message),
+        onError: (e) => alerta('No se pudo guardar', (e as Error).message),
       },
     );
   }
@@ -266,18 +267,20 @@ function HojaEditar({
             <Text style={styles.label}>Etiqueta</Text>
             <TextInput style={styles.input} value={etiqueta} onChangeText={setEtiqueta} />
 
-            <View style={styles.acciones}>
-              <CampoFechaHora valor={valorPicker} onCambio={setLoggedAt}>
-                <Text style={styles.editar}>
-                  {loggedAt ? `Se guardará para: ${formatoFechaHora(loggedAt)}` : 'Cambiar fecha y hora'}
-                </Text>
-              </CampoFechaHora>
-              {loggedAt && (
-                <Pressable style={styles.toqueFecha} onPress={() => setLoggedAt(null)} hitSlop={8}>
-                  <Text style={styles.editar}>Deshacer</Text>
-                </Pressable>
-              )}
-            </View>
+            {Platform.OS !== 'web' && (
+              <View style={styles.acciones}>
+                <CampoFechaHora valor={valorPicker} onCambio={setLoggedAt}>
+                  <Text style={styles.editar}>
+                    {loggedAt ? `Se guardará para: ${formatoFechaHora(loggedAt)}` : 'Cambiar fecha y hora'}
+                  </Text>
+                </CampoFechaHora>
+                {loggedAt && (
+                  <Pressable style={styles.toqueFecha} onPress={() => setLoggedAt(null)} hitSlop={8}>
+                    <Text style={styles.editar}>Deshacer</Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
             <View style={styles.filaBotones}>
               <Pressable style={[styles.boton, styles.secundario]} onPress={onCerrar}>
                 <Text style={styles.botonTextoSec} numberOfLines={1}>

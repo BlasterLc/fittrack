@@ -7,9 +7,10 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-  Alert,
+  Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { alerta } from '@/lib/alerta';
 import {
   useAnalizarComida,
   useRegistrarComida,
@@ -45,7 +46,7 @@ export function RegistroComida({ onGuardado }: { onGuardado?: () => void }) {
   async function elegirFoto() {
     const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permiso.granted) {
-      Alert.alert('Permiso denegado', 'Necesitamos acceso a tus fotos para analizarlas.');
+      alerta('Permiso denegado', 'Necesitamos acceso a tus fotos para analizarlas.');
       return;
     }
     const r = await ImagePicker.launchImageLibraryAsync({
@@ -71,7 +72,7 @@ export function RegistroComida({ onGuardado }: { onGuardado?: () => void }) {
           ultimaSugerencia.current = sugerida;
           onGuardado?.();
         },
-        onError: (e) => Alert.alert('No se pudo guardar', (e as Error).message),
+        onError: (e) => alerta('No se pudo guardar', (e as Error).message),
       },
     );
   }
@@ -112,18 +113,20 @@ export function RegistroComida({ onGuardado }: { onGuardado?: () => void }) {
           <Text style={styles.label}>Etiqueta</Text>
           <TextInput style={styles.input} value={etiqueta} onChangeText={setEtiqueta} />
 
-          <View style={styles.fila}>
-            <CampoFechaHora valor={loggedAt ?? new Date()} onCambio={cambiarFecha}>
-              <Text style={styles.enlaceFecha}>
-                {loggedAt ? `Guardar para: ${formatoFechaHora(loggedAt)}` : 'Cambiar fecha y hora'}
-              </Text>
-            </CampoFechaHora>
-            {loggedAt && (
-              <Pressable style={styles.toqueFecha} onPress={() => cambiarFecha(null)} hitSlop={8}>
-                <Text style={styles.enlaceFecha}>Usar ahora</Text>
-              </Pressable>
-            )}
-          </View>
+          {Platform.OS !== 'web' && (
+            <View style={styles.fila}>
+              <CampoFechaHora valor={loggedAt ?? new Date()} onCambio={cambiarFecha}>
+                <Text style={styles.enlaceFecha}>
+                  {loggedAt ? `Guardar para: ${formatoFechaHora(loggedAt)}` : 'Cambiar fecha y hora'}
+                </Text>
+              </CampoFechaHora>
+              {loggedAt && (
+                <Pressable style={styles.toqueFecha} onPress={() => cambiarFecha(null)} hitSlop={8}>
+                  <Text style={styles.enlaceFecha}>Usar ahora</Text>
+                </Pressable>
+              )}
+            </View>
+          )}
 
           <Pressable
             style={[styles.boton, styles.primario, { marginTop: spacing.md }]}

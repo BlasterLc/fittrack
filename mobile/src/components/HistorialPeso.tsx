@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { View, Text, Pressable, Alert, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { alerta } from '@/lib/alerta';
 import { GraficoPeso } from '@/components/GraficoPeso';
 import { HojaRegistrarPeso } from '@/components/HojaRegistrarPeso';
 import { useHistorialPeso, useBorrarPeso, type RegistroPeso } from '@/hooks/useProgreso';
@@ -21,14 +22,14 @@ export function HistorialPeso() {
   );
 
   function confirmarBorrar(registro: RegistroPeso) {
-    Alert.alert('Eliminar registro', '¿Seguro que quieres eliminar este registro de peso?', [
+    alerta('Eliminar registro', '¿Seguro que quieres eliminar este registro de peso?', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Eliminar',
         style: 'destructive',
         onPress: () =>
           borrar.mutate(registro.id, {
-            onError: (e) => Alert.alert('No se pudo eliminar', (e as Error).message),
+            onError: (e) => alerta('No se pudo eliminar', (e as Error).message),
           }),
       },
     ]);

@@ -1,12 +1,19 @@
-import { View, Text, Pressable, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, StyleSheet, Platform } from 'react-native';
+import { alerta } from '@/lib/alerta';
 import { useExportarResumen } from '@/hooks/useExportarResumen';
 import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
 
 export function BotonExportarResumen() {
   const { exportar, compartir, generando, error, archivoListo } = useExportarResumen();
 
+  // expo-print/expo-intent-launcher/expo-sharing no tienen equivalente web
+  // sencillo — queda para una fase 2, no para el lanzamiento mínimo de la PWA.
+  if (Platform.OS === 'web') return null;
+
+  // Son tres botones, que `alerta()` no sabe traducir a web; aquí no importa
+  // porque el componente entero no se monta en el navegador (arriba).
   function elegirPeriodo() {
-    Alert.alert('Exportar resumen', 'Elige el período que quieres exportar', [
+    alerta('Exportar resumen', 'Elige el período que quieres exportar', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Última semana', onPress: () => exportar(7) },
       { text: 'Último mes', onPress: () => exportar(30) },

@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Alert } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import * as Crypto from 'expo-crypto';
+import { alerta } from '@/lib/alerta';
 import { rutinaDetalleQuery } from '@/hooks/useRutinas';
 import { escribirBorrador, leerBorrador, valorInicial } from '@/lib/sesion';
 
@@ -25,7 +25,7 @@ export function useEmpezarRutina() {
     // usuario todavía no guardó.
     const abierto = await leerBorrador();
     if (abierto) {
-      Alert.alert(
+      alerta(
         'Ya tienes un entrenamiento abierto',
         `Termina o descarta «${abierto.nombreRutina}» antes de empezar otro.`,
         [
@@ -40,7 +40,7 @@ export function useEmpezarRutina() {
     try {
       const detalle = await cliente.fetchQuery(rutinaDetalleQuery(rutinaId));
       if (detalle.ejercicios.length === 0) {
-        Alert.alert(
+        alerta(
           'Esta rutina no tiene ejercicios',
           'Agrégale al menos uno antes de entrenarla.',
         );
@@ -71,7 +71,7 @@ export function useEmpezarRutina() {
       });
       router.push('/sesion');
     } catch (error) {
-      Alert.alert('No pudimos abrir la rutina', (error as Error).message);
+      alerta('No pudimos abrir la rutina', (error as Error).message);
     } finally {
       setEmpezando(null);
     }

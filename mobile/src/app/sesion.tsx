@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, Pressable, ScrollView, ActivityIndicator, Alert, StyleSheet } from 'react-native';
+import { View, Text, Pressable, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { alerta } from '@/lib/alerta';
 import { useSesion } from '@/hooks/useSesion';
 import { TiraEjercicios } from '@/components/TiraEjercicios';
 import { TablaSeries } from '@/components/TablaSeries';
@@ -89,7 +90,7 @@ export default function Sesion() {
           actualizar({ ...borrador, ejercicios: [...borrador.ejercicios, ...agregados] });
         })
         .catch(() => {
-          if (!cancelado) Alert.alert('No pudimos agregar el ejercicio elegido');
+          if (!cancelado) alerta('No pudimos agregar el ejercicio elegido');
         });
 
       return () => {
@@ -124,7 +125,7 @@ export default function Sesion() {
           descartar();
           router.replace('/(tabs)/gym');
           if (guardado.omitidos.length > 0) {
-            Alert.alert(
+            alerta(
               'Guardado con avisos',
               `${guardado.omitidos.length} ejercicio(s) ya no están en el catálogo y quedaron fuera.`,
             );
@@ -181,7 +182,7 @@ export default function Sesion() {
   function alTerminar() {
     const hayAlgo = totalSeriesHechas(borrador!) > 0;
     if (!hayAlgo) {
-      Alert.alert(
+      alerta(
         'Sin series registradas',
         '¿Terminar el entrenamiento sin haber registrado ninguna serie?',
         [
