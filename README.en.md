@@ -17,22 +17,14 @@ A full rebuild of [fittrack](https://github.com/BlasterLc/fittrack), now archive
 
 ## Screenshots
 
-<!--
-TODO screenshots. Capture 3-4 from the phone (Android, dark theme) and save
-them in docs/capturas/ with these names. Recommended: PNG at the phone's real
-width, or a short GIF for the session screen.
+<p align="center">
+  <img src="docs/capturas/inicio.jpeg" width="200" alt="Home screen: greeting, daily calorie ring and shortcuts" />
+  <img src="docs/capturas/sesion.jpeg" width="200" alt="In-gym session: sets of an exercise with editable weight and reps" />
+  <img src="docs/capturas/progreso.jpeg" width="200" alt="Progress: trained-days map and weekly sets per muscle group" />
+  <img src="docs/capturas/comida.jpeg" width="200" alt="Meal logging: description by text, photo or voice" />
+</p>
 
-  docs/capturas/inicio.png      — Home screen: streak, calorie ring, shortcuts
-  docs/capturas/sesion.png      — In-gym session: check off sets, adjust weight/reps
-  docs/capturas/progreso.png    — Progress: yearly attendance map + sets per muscle group
-  docs/capturas/comida.png      — Log a meal: text/photo/voice description, estimated macros
-
-Once saved, replace this table with the real images.
--->
-
-| Home | Session | Progress | Nutrition |
-|:---:|:---:|:---:|:---:|
-| _pending_ | _pending_ | _pending_ | _pending_ |
+<p align="center"><sub>Home · Session · Progress · Nutrition — Android, dark theme</sub></p>
 
 ---
 

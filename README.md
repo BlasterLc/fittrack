@@ -17,22 +17,14 @@ Reconstrucción completa de [fittrack](https://github.com/BlasterLc/fittrack), q
 
 ## Capturas
 
-<!--
-TODO capturas. Tomar 3-4 desde el teléfono (Android, tema oscuro) y guardarlas
-en docs/capturas/ con estos nombres. Formato recomendado: PNG a ancho real del
-teléfono, o un GIF corto para la sesión.
+<p align="center">
+  <img src="docs/capturas/inicio.jpeg" width="200" alt="Pantalla Inicio: saludo, anillo de calorías del día y accesos directos" />
+  <img src="docs/capturas/sesion.jpeg" width="200" alt="Sesión en el gimnasio: series de un ejercicio con peso y repeticiones editables" />
+  <img src="docs/capturas/progreso.jpeg" width="200" alt="Progreso: mapa de días entrenados y series semanales por grupo muscular" />
+  <img src="docs/capturas/comida.jpeg" width="200" alt="Registro de comida: descripción por texto, foto o voz" />
+</p>
 
-  docs/capturas/inicio.png      — pantalla Inicio: racha, anillo de calorías, accesos directos
-  docs/capturas/sesion.png      — sesión en el gimnasio: marcar series, ajustar peso/reps
-  docs/capturas/progreso.png    — Progreso: mapa anual de asistencia + series por grupo muscular
-  docs/capturas/comida.png      — registrar comida: descripción por texto/foto/voz, macros estimados
-
-Una vez guardadas, reemplazar esta tabla por las imágenes reales.
--->
-
-| Inicio | Sesión | Progreso | Comida |
-|:---:|:---:|:---:|:---:|
-| _pendiente_ | _pendiente_ | _pendiente_ | _pendiente_ |
+<p align="center"><sub>Inicio · Sesión · Progreso · Comida — Android, tema oscuro</sub></p>
 
 ---
 
