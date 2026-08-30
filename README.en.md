@@ -1,15 +1,17 @@
 # FitTrack v2
 
-> Workout and nutrition tracking built for the gym. One codebase for **iOS, Android, and web (PWA)**, with AI-based calorie estimation and a custom backend.
+**Track your workouts and your nutrition from a single app, on your phone or in the browser.**
 
 **Language:** [Español](README.md) · English
 
 ![Expo SDK 57](https://img.shields.io/badge/Expo_SDK-57-000?logo=expo)
-![React Native 0.86](https://img.shields.io/badge/React_Native-0.86-61dafb?logo=react)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
-![Python 3.12](https://img.shields.io/badge/Python-3.12-3776ab?logo=python&logoColor=white)
 ![Supabase](https://img.shields.io/badge/Supabase-Postgres_·_Auth_·_Storage-3ecf8e?logo=supabase&logoColor=white)
 ![pytest 337](https://img.shields.io/badge/pytest-337_tests-0a9edc?logo=pytest&logoColor=white)
+
+Keeping the gym and food in separate apps is tedious and ends up abandoned. FitTrack puts both in one place, with the focus on the training itself: the session screen lets you check off sets and correct weight and reps with no friction, while the rest of the app builds progress over time —attendance, volume per muscle group, body weight. For food, you describe the meal by text, photo, or voice and Claude estimates calories and macros; you correct it before saving.
+
+The native app (iOS and Android) and the web version are the same `mobile/` codebase: Expo Router treats the browser as just another platform. The web build installs as a PWA, which reaches iPhone without paying for the Apple Developer Program. Behind it is a custom FastAPI backend and Supabase for data, identity, and files.
 
 A full rebuild of [fittrack](https://github.com/BlasterLc/fittrack), now archived for reference.
 
@@ -27,12 +29,6 @@ A full rebuild of [fittrack](https://github.com/BlasterLc/fittrack), now archive
 <p align="center"><sub>Home · Session · Progress · Nutrition — Android, dark theme</sub></p>
 
 ---
-
-## What it is
-
-An app to track training and nutrition in one place. The focus is real use inside the gym: the session screen lets you check off sets and correct weight and reps with no friction, while the rest of the app records progress over time.
-
-The same `mobile/` codebase runs on all three platforms (Expo Router treats the web as just another target). The web build ships as an installable PWA, which sidesteps the Apple Developer Program cost to reach iPhone.
 
 ## Features
 
@@ -56,54 +52,48 @@ The same `mobile/` codebase runs on all three platforms (Expo Router treats the 
 **Account**
 - Public sign-up with email confirmation and a mandatory onboarding wizard (date of birth, basic data, goals).
 
+---
+
 ## Architecture
 
 ```mermaid
 flowchart LR
-    subgraph client["mobile/ · one codebase"]
-        M["iOS / Android<br/>Expo · EAS"]
-        W["Web / PWA<br/>Vercel"]
-    end
-    API["api/ · FastAPI<br/>Railway"]
-    subgraph sb["Supabase"]
-        DB[("PostgreSQL")]
-        AUTH["Auth"]
-        ST["Storage<br/>animations"]
-    end
-
-    M -->|"Bearer JWT"| API
-    W -->|"Bearer JWT"| API
-    M -.->|"login"| AUTH
-    W -.->|"login"| AUTH
-    API -->|"SQLAlchemy 2.0"| DB
-    API -->|"verifies signature via JWKS"| AUTH
-    W -->|"GIFs over CDN"| ST
+    U[User] --> APP["App<br/>iOS · Android · Web / PWA"]
+    APP -->|"1 · sign in"| AUTH["Supabase Auth"]
+    AUTH -.->|"2 · signed JWT (ES256)"| APP
+    APP -->|"3 · request + Bearer JWT"| API["FastAPI<br/>Railway"]
+    API -->|"4 · verify signature via JWKS"| AUTH
+    API -->|"5 · query filtered by user_id"| DB[("PostgreSQL<br/>Supabase")]
+    APP -->|"animations over CDN"| ST["Supabase Storage"]
 ```
 
-Two independent runtimes in the same repository. The client gets its JWT straight from Supabase Auth; the API never issues tokens, it only verifies their signature. User isolation is done by `user_id` (the `auth.users` UUID) on every query, with no database-level foreign keys, because the test suite runs against a local Postgres that has no `auth` schema.
+Two independent runtimes in the same repository: `api/` (FastAPI, on Railway) and `mobile/` (Expo, on Vercel for the web). The client gets its JWT straight from Supabase Auth; the API never issues tokens, it only verifies their signature before responding.
+
+---
+
+## How it works
+
+**One codebase for three platforms.** Expo Router treats the web as just another target, so iOS, Android, and the PWA all come from the same `mobile/`. Bringing the native app to the browser exposed two traps that neither `tsc` nor the bundler catches: `Alert.alert` does nothing in `react-native-web` (solved with a wrapper that uses `window.confirm` on web), and the Supabase client's `localStorage` does not exist during the static Node render that `expo export` performs.
+
+**Delegated identity, in-house verification.** The client requests the JWT straight from Supabase Auth; the API never issues tokens, it only verifies their signature. `api/auth.py` dispatches on the token's algorithm: ES256/RS256 are verified against the project's JWKS (client cached per process), and HS256 is kept only for test tokens, which are signed without touching the network.
+
+**Per-user isolation with no foreign keys.** Every personal table filters by the user's UUID, and the catalog is shared. There are no FKs to the `auth` schema so the test suite can run against a local Postgres that lacks it; in exchange, every id coming from the client is checked as the caller's own before it is used.
+
+**Nutrition with a review step.** The meal description —text, photo, or voice— goes to Claude Haiku, which returns calories and macros. That estimate is never saved on its own: the user corrects and confirms it first.
+
+---
 
 ## Stack
 
-| Layer | Technology |
-|---|---|
-| App | React Native 0.86 + Expo SDK 57 + Expo Router (iOS, Android, web/PWA) |
-| Server state | TanStack Query |
-| API | FastAPI + SQLAlchemy 2.0 + Pydantic v2 |
-| Database | Supabase (PostgreSQL), accessed via the session pooler |
-| Identity | Supabase Auth — the API verifies the JWT (ES256/RS256 via JWKS), it does not issue it |
-| Animations | Supabase Storage, public bucket served over CDN |
-| Nutrition | Claude Haiku 4.5 (Anthropic API) |
-| Infrastructure | Railway (API) · Vercel (web) · Supabase (data, identity, files) |
-| Tests | pytest against local PostgreSQL — 337 tests, no network |
+- **React Native 0.86 + Expo SDK 57 + Expo Router** — app for iOS, Android, and web/PWA from a single codebase
+- **TanStack Query** — server state and client-side cache
+- **FastAPI + SQLAlchemy 2.0 + Pydantic v2** — the API
+- **Supabase** — PostgreSQL (via the session pooler), Auth, and animation Storage
+- **Claude Haiku 4.5** — calorie and macro estimation
+- **Railway** — API deploy · **Vercel** — web deploy
+- **pytest** — 337 tests against local PostgreSQL, no network
 
-## Engineering notes
-
-- **JWT verification by algorithm.** Supabase signs real tokens with ES256, not with the shared secret. `api/auth.py` dispatches on the `alg` claim: ES256/RS256 are verified against the project's JWKS (client cached per process), and HS256 is kept only for test tokens, which are signed without touching the network.
-- **Isolation by `user_id` with no database FK.** Every personal table filters by the user's UUID; the catalog is shared. No foreign keys to the `auth` schema so the test suite can run on a local Postgres without it.
-- **Concurrent writes.** A double tap on "Save" fires two requests; services that replace lists use `SELECT ... FOR UPDATE` to avoid duplicating or corrupting the collection.
-- **Three platforms from one codebase.** Bringing the native app to the web exposed two silent traps that neither `tsc` nor the bundler catches: `Alert.alert` is a no-op in `react-native-web` (solved with a wrapper that uses `window.confirm` on web), and the Supabase client's `localStorage` does not exist during the static Node render of `expo export`.
-- **No migrations.** The deploy does not run Alembic; schema changes are applied by hand against production before the code lands, following a documented runbook. A deliberate choice for a single-author project.
-- **Deliberate mutation while testing.** When writing a test, the function is broken on purpose to confirm the test goes red. Nine mutations survived test suites that looked complete in this project; it is the recurring gap.
+---
 
 ## Layout
 
@@ -120,6 +110,8 @@ data/      Versioned catalog (names translated to Spanish).
 tests/     Backend tests (pytest).
 ```
 
+---
+
 ## Getting started
 
 ### Backend
@@ -129,7 +121,6 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env        # fill in the values
 uvicorn api.main:app --reload
-pytest -q                   # 337 tests against local PostgreSQL
 ```
 
 Tests run against a local PostgreSQL (`TEST_DATABASE_URL`), never against Supabase. The direct Supabase connection (`db.<ref>.supabase.co`) is IPv6-only and does not work on WSL or Railway: use the **session pooler**.
@@ -147,10 +138,13 @@ npx expo start              # open with Expo Go (SDK 57)
 
 ```bash
 cd mobile
-npx expo export --platform web   # builds dist/
+npx expo export --platform web   # builds dist/, served as static files (Vercel)
 ```
 
-The web build is served as static files (Vercel). The backend enables CORS for that origin through the `WEB_ORIGIN` variable; if it is not set, nothing changes (local and tests stay as they are).
+The backend enables CORS for that origin through the `WEB_ORIGIN` variable; if it is not set, nothing changes (local and tests stay as they are).
+
+<details>
+<summary>Environment variables and initial catalog load</summary>
 
 ### Environment variables
 
@@ -178,6 +172,20 @@ python -m api.scripts.subir_gifs    # animations into Supabase Storage (idempote
 ```
 
 `data/nombres_es.json` already ships with the translated names, so `ANTHROPIC_API_KEY` is not needed for the catalog.
+
+</details>
+
+---
+
+## Tests
+
+```bash
+.venv/bin/python -m pytest
+```
+
+When writing a test, the function is broken on purpose to confirm the test goes red: several mutations survived test suites that looked complete in this project, and that is the recurring gap.
+
+---
 
 ## Exercise data
 

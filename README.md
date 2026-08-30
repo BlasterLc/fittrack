@@ -1,15 +1,17 @@
 # FitTrack v2
 
-> Seguimiento de entrenamiento y nutrición para el gimnasio. Una sola base de código para **iOS, Android y web (PWA)**, con estimación de calorías por IA y un backend propio.
+**Registra tus entrenamientos y tu alimentación desde una sola app, en el teléfono o en el navegador.**
 
 **Idioma:** Español · [English](README.en.md)
 
 ![Expo SDK 57](https://img.shields.io/badge/Expo_SDK-57-000?logo=expo)
-![React Native 0.86](https://img.shields.io/badge/React_Native-0.86-61dafb?logo=react)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
-![Python 3.12](https://img.shields.io/badge/Python-3.12-3776ab?logo=python&logoColor=white)
 ![Supabase](https://img.shields.io/badge/Supabase-Postgres_·_Auth_·_Storage-3ecf8e?logo=supabase&logoColor=white)
 ![pytest 337](https://img.shields.io/badge/pytest-337_tests-0a9edc?logo=pytest&logoColor=white)
+
+Llevar el gimnasio y la comida en apps separadas es tedioso y termina abandonado. FitTrack junta las dos cosas con el foco puesto en el momento del entrenamiento: la pantalla de sesión deja marcar series y corregir peso y repeticiones sin fricción, y el resto de la app arma el progreso a lo largo del tiempo —asistencia, volumen por grupo muscular, peso corporal—. Para la comida se describe el plato por texto, foto o voz y Claude estima calorías y macros; el usuario corrige antes de guardar.
+
+La app nativa (iOS y Android) y la versión web son el mismo código de `mobile/`: Expo Router trata el navegador como una plataforma más. La web se instala como PWA, lo que permite llegar a iPhone sin pagar el Apple Developer Program. Detrás hay un backend propio en FastAPI y Supabase para datos, identidad y archivos.
 
 Reconstrucción completa de [fittrack](https://github.com/BlasterLc/fittrack), que queda archivado como referencia.
 
@@ -27,12 +29,6 @@ Reconstrucción completa de [fittrack](https://github.com/BlasterLc/fittrack), q
 <p align="center"><sub>Inicio · Sesión · Progreso · Comida — Android, tema oscuro</sub></p>
 
 ---
-
-## Qué es
-
-Una app para llevar el gimnasio y la alimentación en un mismo lugar. El foco es el uso real dentro del gimnasio: la pantalla de sesión permite marcar series y corregir peso y repeticiones sin fricción, y el resto de la app registra el progreso a lo largo del tiempo.
-
-El mismo código de `mobile/` corre en las tres plataformas (Expo Router trata la web como un target más). La versión web se despliega como PWA instalable, lo que evita el costo del Apple Developer Program para llegar a iPhone.
 
 ## Funcionalidades
 
@@ -56,54 +52,48 @@ El mismo código de `mobile/` corre en las tres plataformas (Expo Router trata l
 **Cuenta**
 - Registro público con confirmación por correo y un asistente de onboarding obligatorio (fecha de nacimiento, datos básicos, metas).
 
+---
+
 ## Arquitectura
 
 ```mermaid
 flowchart LR
-    subgraph cliente["mobile/ · una base de código"]
-        M["iOS / Android<br/>Expo · EAS"]
-        W["Web / PWA<br/>Vercel"]
-    end
-    API["api/ · FastAPI<br/>Railway"]
-    subgraph sb["Supabase"]
-        DB[("PostgreSQL")]
-        AUTH["Auth"]
-        ST["Storage<br/>animaciones"]
-    end
-
-    M -->|"Bearer JWT"| API
-    W -->|"Bearer JWT"| API
-    M -.->|"login"| AUTH
-    W -.->|"login"| AUTH
-    API -->|"SQLAlchemy 2.0"| DB
-    API -->|"valida firma vía JWKS"| AUTH
-    W -->|"GIFs por CDN"| ST
+    U[Usuario] --> APP["App<br/>iOS · Android · Web / PWA"]
+    APP -->|"1 · inicia sesión"| AUTH["Supabase Auth"]
+    AUTH -.->|"2 · JWT firmado (ES256)"| APP
+    APP -->|"3 · petición + Bearer JWT"| API["FastAPI<br/>Railway"]
+    API -->|"4 · valida la firma con el JWKS"| AUTH
+    API -->|"5 · consulta filtrada por user_id"| DB[("PostgreSQL<br/>Supabase")]
+    APP -->|"animaciones vía CDN"| ST["Supabase Storage"]
 ```
 
-Dos runtimes independientes en el mismo repositorio. El cliente obtiene el JWT directamente de Supabase Auth; la API nunca emite tokens, solo valida su firma. El aislamiento entre usuarios se hace por `user_id` (UUID de `auth.users`) en cada consulta, sin claves foráneas a nivel de base de datos, porque las pruebas corren contra un Postgres local que no tiene el esquema `auth`.
+Dos runtimes independientes en el mismo repositorio: `api/` (FastAPI, en Railway) y `mobile/` (Expo, en Vercel para la web). El cliente obtiene el JWT directamente de Supabase Auth; la API nunca emite tokens, solo valida su firma antes de responder.
+
+---
+
+## Cómo funciona
+
+**Una base de código para tres plataformas.** Expo Router trata la web como un target más, así que iOS, Android y la PWA salen del mismo `mobile/`. Llevar la app nativa al navegador destapó dos trampas que ni `tsc` ni el bundler detectan: `Alert.alert` no hace nada en `react-native-web` (resuelto con un wrapper que usa `window.confirm` en web), y el `localStorage` del cliente de Supabase no existe durante el render estático en Node que hace `expo export`.
+
+**Identidad delegada, verificación propia.** El cliente pide el JWT directamente a Supabase Auth; la API nunca emite tokens, solo valida su firma. `api/auth.py` despacha según el algoritmo del token: ES256/RS256 se verifican contra el JWKS del proyecto (cliente cacheado por proceso), y HS256 queda solo para los tokens de prueba, que se firman sin tocar la red.
+
+**Aislamiento por usuario sin llaves foráneas.** Cada tabla personal filtra por el UUID del usuario y el catálogo es compartido. No hay FK al esquema `auth` para que la batería de pruebas corra contra un Postgres local que no lo tiene; a cambio, todo id que llega del cliente se valida como propio antes de usarse.
+
+**Nutrición con un paso de revisión.** La descripción del plato —texto, foto o voz— va a Claude Haiku, que devuelve calorías y macros. Esa estimación nunca se guarda sola: el usuario la corrige y confirma primero.
+
+---
 
 ## Stack
 
-| Capa | Tecnología |
-|---|---|
-| App | React Native 0.86 + Expo SDK 57 + Expo Router (iOS, Android, web/PWA) |
-| Estado de servidor | TanStack Query |
-| API | FastAPI + SQLAlchemy 2.0 + Pydantic v2 |
-| Base de datos | Supabase (PostgreSQL), acceso vía _session pooler_ |
-| Identidad | Supabase Auth — la API valida el JWT (ES256/RS256 vía JWKS), no lo emite |
-| Animaciones | Supabase Storage, bucket público servido por CDN |
-| Nutrición | Claude Haiku 4.5 (API de Anthropic) |
-| Infraestructura | Railway (API) · Vercel (web) · Supabase (datos, identidad y archivos) |
-| Pruebas | pytest sobre PostgreSQL local — 337 pruebas, sin red |
+- **React Native 0.86 + Expo SDK 57 + Expo Router** — app para iOS, Android y web/PWA desde un solo código
+- **TanStack Query** — estado de servidor y caché en el cliente
+- **FastAPI + SQLAlchemy 2.0 + Pydantic v2** — la API
+- **Supabase** — PostgreSQL (vía _session pooler_), Auth y Storage de animaciones
+- **Claude Haiku 4.5** — estimación de calorías y macros
+- **Railway** — despliegue de la API · **Vercel** — despliegue de la web
+- **pytest** — 337 pruebas contra PostgreSQL local, sin red
 
-## Decisiones técnicas
-
-- **Verificación de JWT por algoritmo.** Supabase firma los tokens reales con ES256, no con el secreto compartido. `api/auth.py` despacha según el claim `alg`: ES256/RS256 se validan contra el JWKS del proyecto (cliente cacheado por proceso), y HS256 queda solo para los tokens de prueba, que se firman sin tocar la red.
-- **Aislamiento por `user_id` sin FK de base de datos.** Cada tabla personal filtra por el UUID del usuario; el catálogo es compartido. Sin claves foráneas al esquema `auth` para que la batería de pruebas corra en un Postgres local sin ese esquema.
-- **Escrituras concurrentes.** Un doble toque en "Guardar" manda dos requests; los servicios que reemplazan listas usan `SELECT ... FOR UPDATE` para no duplicar ni corromper la colección.
-- **Tres plataformas desde un código.** Llevar la app nativa a la web expuso dos trampas silenciosas que ni `tsc` ni el _bundler_ detectan: `Alert.alert` es un _no-op_ en `react-native-web` (resuelto con un wrapper que usa `window.confirm` en web) y el `localStorage` del cliente de Supabase no existe durante el render estático en Node del `expo export`.
-- **Sin migraciones.** El despliegue no corre Alembic; los cambios de esquema se aplican a mano contra producción antes de que el código llegue, con un runbook documentado. Decisión consciente para un proyecto de un solo autor.
-- **Pruebas con mutación deliberada.** Al escribir una prueba se rompe la función a propósito para confirmar que se pone en rojo. En este proyecto sobrevivieron nueve mutaciones a baterías que parecían completas; es el hueco recurrente.
+---
 
 ## Estructura
 
@@ -120,6 +110,8 @@ data/      Catálogo versionado (nombres traducidos al español).
 tests/     Pruebas del backend (pytest).
 ```
 
+---
+
 ## Puesta en marcha
 
 ### Backend
@@ -129,7 +121,6 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env        # completar los valores
 uvicorn api.main:app --reload
-pytest -q                   # 337 pruebas contra PostgreSQL local
 ```
 
 Las pruebas corren contra un PostgreSQL local (`TEST_DATABASE_URL`), nunca contra Supabase. La conexión directa a Supabase (`db.<ref>.supabase.co`) es solo IPv6 y no funciona en WSL ni en Railway: hay que usar el **session pooler**.
@@ -147,10 +138,13 @@ npx expo start              # abrir con Expo Go (SDK 57)
 
 ```bash
 cd mobile
-npx expo export --platform web   # genera dist/
+npx expo export --platform web   # genera dist/, se sirve como estática (Vercel)
 ```
 
-La build web se sirve como estática (Vercel). El backend habilita CORS para ese origen mediante la variable `WEB_ORIGIN`; si no está definida, no cambia nada (así siguen local y las pruebas).
+El backend habilita CORS para ese origen mediante la variable `WEB_ORIGIN`; si no está definida, no cambia nada (así siguen local y las pruebas).
+
+<details>
+<summary>Variables de entorno y carga inicial del catálogo</summary>
 
 ### Variables de entorno
 
@@ -178,6 +172,20 @@ python -m api.scripts.subir_gifs    # animaciones a Supabase Storage (idempotent
 ```
 
 `data/nombres_es.json` ya viene versionado con los nombres traducidos, así que no hace falta `ANTHROPIC_API_KEY` para el catálogo.
+
+</details>
+
+---
+
+## Pruebas
+
+```bash
+.venv/bin/python -m pytest
+```
+
+Al escribir una prueba se rompe la función a propósito para confirmar que se pone en rojo: en este proyecto varias mutaciones sobrevivieron a baterías que parecían completas, y ese es el hueco recurrente.
+
+---
 
 ## Datos de ejercicios
 
