@@ -7,6 +7,8 @@ import {
   ScrollView,
   ActivityIndicator,
   StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { alerta } from '@/lib/alerta';
 import { FilaNumero } from '@/components/CamposPerfil';
@@ -38,7 +40,12 @@ export function HojaRegistrarPeso({
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={cerrarYLimpiar}>
-      <View style={styles.fondo}>
+      {/* La hoja sube con el teclado para no tapar el campo ni los botones.
+          Solo iOS: en Android la ventana ya se redimensiona sola. */}
+      <KeyboardAvoidingView
+        style={styles.fondo}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <View style={styles.hoja}>
           <ScrollView
             contentContainerStyle={styles.cuerpo}
@@ -68,7 +75,7 @@ export function HojaRegistrarPeso({
             </View>
           </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

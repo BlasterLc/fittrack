@@ -78,7 +78,14 @@ export function RegistroComida({ onGuardado }: { onGuardado?: () => void }) {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      contentContainerStyle={styles.body}
+      keyboardShouldPersistTaps="handled"
+      // El campo Etiqueta y el botón Guardar quedan al fondo del scroll: sin
+      // esto el teclado los tapaba (iOS no reajusta solo; en Android la
+      // ventana ya se redimensiona y en web no hay teclado).
+      automaticallyAdjustKeyboardInsets
+    >
       <TextInput
         style={styles.input}
         placeholder="Describe tu comida (o usa el micrófono del teclado)"

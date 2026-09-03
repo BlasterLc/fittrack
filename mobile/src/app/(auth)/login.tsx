@@ -1,5 +1,14 @@
 import { useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  StyleSheet,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
@@ -81,52 +90,60 @@ export default function Login() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.container}>
-        <Text style={styles.titulo}>FitTrack</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Correo"
-          placeholderTextColor={colors.muted}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          value={email}
-          onChangeText={setEmail}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Contraseña"
-          placeholderTextColor={colors.muted}
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
-        {error && <Text style={styles.error}>{error}</Text>}
-        <Pressable
-          style={styles.boton}
-          onPress={modo === 'ingresar' ? iniciarSesion : crearCuenta}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color={colors.ink} />
-          ) : (
-            <Text style={styles.botonTexto}>
-              {modo === 'ingresar' ? 'Entrar' : 'Crear cuenta'}
+      {/* El formulario va centrado y sin scroll: en iOS el teclado tapaba la
+          contraseña y el botón. `padding` empuja el contenido hacia arriba;
+          en Android la ventana ya se redimensiona sola. */}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <View style={styles.container}>
+          <Text style={styles.titulo}>FitTrack</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Correo"
+            placeholderTextColor={colors.muted}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            value={email}
+            onChangeText={setEmail}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Contraseña"
+            placeholderTextColor={colors.muted}
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+          />
+          {error && <Text style={styles.error}>{error}</Text>}
+          <Pressable
+            style={styles.boton}
+            onPress={modo === 'ingresar' ? iniciarSesion : crearCuenta}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color={colors.ink} />
+            ) : (
+              <Text style={styles.botonTexto}>
+                {modo === 'ingresar' ? 'Entrar' : 'Crear cuenta'}
+              </Text>
+            )}
+          </Pressable>
+          <Pressable
+            style={styles.alternar}
+            onPress={() => cambiarModo(modo === 'ingresar' ? 'crear' : 'ingresar')}
+            disabled={loading}
+            accessibilityRole="button"
+          >
+            <Text style={styles.alternarTexto}>
+              {modo === 'ingresar'
+                ? '¿No tienes cuenta? Crea una'
+                : '¿Ya tienes cuenta? Inicia sesión'}
             </Text>
-          )}
-        </Pressable>
-        <Pressable
-          style={styles.alternar}
-          onPress={() => cambiarModo(modo === 'ingresar' ? 'crear' : 'ingresar')}
-          disabled={loading}
-          accessibilityRole="button"
-        >
-          <Text style={styles.alternarTexto}>
-            {modo === 'ingresar'
-              ? '¿No tienes cuenta? Crea una'
-              : '¿Ya tienes cuenta? Inicia sesión'}
-          </Text>
-        </Pressable>
-      </View>
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

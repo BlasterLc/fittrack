@@ -9,6 +9,7 @@ import {
   Modal,
   TextInput,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { alerta } from '@/lib/alerta';
 import {
@@ -256,7 +257,12 @@ function HojaEditar({
 
   return (
     <Modal visible={comida !== null} animationType="slide" transparent onRequestClose={onCerrar}>
-      <View style={styles.modalFondo}>
+      {/* La hoja sube con el teclado para no tapar el campo Etiqueta ni los
+          botones. Solo iOS: en Android la ventana ya se redimensiona sola. */}
+      <KeyboardAvoidingView
+        style={styles.modalFondo}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <View style={styles.modalHoja}>
           <ScrollView
             contentContainerStyle={{ gap: spacing.md, padding: spacing.xl }}
@@ -303,7 +309,7 @@ function HojaEditar({
             </View>
           </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
