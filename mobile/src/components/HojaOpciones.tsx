@@ -48,6 +48,10 @@ export function HojaOpciones<T extends string>({
   const arrastre = Gesture.Pan()
     // Solo hacia abajo: tirar hacia arriba despegaría la hoja del borde.
     .onUpdate((e) => {
+      // El shared value de Reanimated es un contenedor mutable por diseño y
+      // `.value =` es su API; `react-hooks/immutability` lo marca porque el
+      // effect de arriba lo usa como dependencia, pero no dispara renders.
+      // eslint-disable-next-line react-hooks/immutability
       desplazamiento.value = Math.max(0, e.translationY);
     })
     .onEnd((e) => {
@@ -59,6 +63,7 @@ export function HojaOpciones<T extends string>({
       }
       // withSpring respeta «reducir movimiento» del sistema por defecto
       // (ReduceMotion.System), así que no hay que hacer nada extra.
+      // eslint-disable-next-line react-hooks/immutability
       desplazamiento.value = withSpring(0, { damping: 20, stiffness: 200 });
     });
 

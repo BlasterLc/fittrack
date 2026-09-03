@@ -24,6 +24,10 @@ import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
 export function BarraSesion() {
   const router = useRouter();
   const [borrador, setBorrador] = useState<BorradorSesion | null>(null);
+  // La hora se captura al recuperar el foco, no en cada render: leerla en el
+  // cuerpo con `Date.now()` hace el render impuro (react-hooks/purity), y de
+  // todos modos la barra solo se refresca al volver el foco a la pestaña.
+  const [ahora, setAhora] = useState(() => Date.now());
 
   // `deps: []` es correcto acá porque el callback no lee nada que cambie:
   // solo relee del disco y siembra el estado. (En la pantalla de sesión el
@@ -32,6 +36,7 @@ export function BarraSesion() {
   useFocusEffect(
     useCallback(() => {
       let cancelado = false;
+      setAhora(Date.now());
       leerBorrador().then((b) => {
         if (!cancelado) setBorrador(b);
       });
@@ -45,10 +50,10 @@ export function BarraSesion() {
 
   const enCurso = borrador.terminadoEn === null;
   const deHoy = esDeHoy(borrador.iniciadoEn);
-  // Se calcula al dibujar, sin cronómetro: la barra se refresca cada vez que
-  // la pestaña recupera el foco, y un intervalo corriendo en una pestaña que
-  // no se está mirando no compra nada.
-  const minutos = Math.floor((Date.now() - new Date(borrador.iniciadoEn).getTime()) / 60_000);
+  // Se calcula al dibujar, sin cronómetro: `ahora` se fija cuando la pestaña
+  // recupera el foco (ver useFocusEffect), y un intervalo corriendo en una
+  // pestaña que no se está mirando no compra nada.
+  const minutos = Math.floor((ahora - new Date(borrador.iniciadoEn).getTime()) / 60_000);
 
   function olvidar() {
     setBorrador(null);

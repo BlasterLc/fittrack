@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -215,37 +215,59 @@ function HojaEditar({
   comida: ComidaGuardada | null;
   onCerrar: () => void;
 }) {
-  const editar = useEditarComida();
-  const [items, setItems] = useState<ItemComida[]>([]);
-  const [etiqueta, setEtiqueta] = useState('');
-  const [loggedAt, setLoggedAt] = useState<Date | null>(null);
+  return (
+    <Modal visible={comida !== null} animationType="slide" transparent onRequestClose={onCerrar}>
+      {/* La hoja sube con el teclado para no tapar el campo Etiqueta ni los
+          botones. Solo iOS: en Android la ventana ya se redimensiona sola. */}
+      <KeyboardAvoidingView
+        style={styles.modalFondo}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <View style={styles.modalHoja}>
+          {/* `key` por comida: cambiar de comida a editar remonta el
+              formulario, y su estado local se siembra de cero desde la nueva
+              en los inicializadores de useState. Antes lo hacía un useEffect
+              de sincronización, que corría un render tarde
+              (react-hooks/set-state-in-effect) — el mismo antipatrón que ya
+              mordió en Perfil. */}
+          {comida && <FormularioEditar key={comida.id} comida={comida} onCerrar={onCerrar} />}
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
 
-  useEffect(() => {
-    if (comida) {
-      setItems(
-        comida.items.map((it) => ({
-          nombre: it.nombre,
-          calorias: it.calorias,
-          prot_g: it.prot_g,
-          carbs_g: it.carbs_g,
-          fat_g: it.fat_g,
-        })),
-      );
-      setEtiqueta(comida.etiqueta ?? '');
-      setLoggedAt(null);
-    }
-  }, [comida]);
+function FormularioEditar({
+  comida,
+  onCerrar,
+}: {
+  comida: ComidaGuardada;
+  onCerrar: () => void;
+}) {
+  const editar = useEditarComida();
+  const [items, setItems] = useState<ItemComida[]>(() =>
+    comida.items.map((it) => ({
+      nombre: it.nombre,
+      calorias: it.calorias,
+      prot_g: it.prot_g,
+      carbs_g: it.carbs_g,
+      fat_g: it.fat_g,
+    })),
+  );
+  const [etiqueta, setEtiqueta] = useState(() => comida.etiqueta ?? '');
+  const [loggedAt, setLoggedAt] = useState<Date | null>(null);
 
   // Piso de 7 días: si la comida ya es más vieja, el picker no puede abrir
   // mostrando esa fecha (queda fuera de su propio minimumDate). Es solo el
   // valor de arranque del selector — mientras loggedAt siga en null no se
-  // manda nada y la fecha real de la comida no se toca.
-  const piso = new Date(Date.now() - VENTANA_DIAS * 24 * 60 * 60 * 1000);
-  const original = comida ? new Date(comida.logged_at) : new Date();
+  // manda nada y la fecha real de la comida no se toca. Se fija una vez en el
+  // inicializador de useState: `Date.now()` en el cuerpo del render lo marca
+  // react-hooks/purity, y useMemo no lo exime.
+  const [piso] = useState(() => new Date(Date.now() - VENTANA_DIAS * 24 * 60 * 60 * 1000));
+  const original = new Date(comida.logged_at);
   const valorPicker = loggedAt ?? (original < piso ? piso : original);
 
   function guardar() {
-    if (!comida) return;
     editar.mutate(
       { id: comida.id, items, etiqueta, ...(loggedAt ? { logged_at: loggedAt.toISOString() } : {}) },
       {
@@ -256,61 +278,50 @@ function HojaEditar({
   }
 
   return (
-    <Modal visible={comida !== null} animationType="slide" transparent onRequestClose={onCerrar}>
-      {/* La hoja sube con el teclado para no tapar el campo Etiqueta ni los
-          botones. Solo iOS: en Android la ventana ya se redimensiona sola. */}
-      <KeyboardAvoidingView
-        style={styles.modalFondo}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <View style={styles.modalHoja}>
-          <ScrollView
-            contentContainerStyle={{ gap: spacing.md, padding: spacing.xl }}
-            keyboardShouldPersistTaps="handled"
-          >
-            <Text style={styles.h2}>Editar comida</Text>
-            <EditorItems items={items} onChange={setItems} />
-            <Text style={styles.label}>Etiqueta</Text>
-            <TextInput style={styles.input} value={etiqueta} onChangeText={setEtiqueta} />
+    <ScrollView
+      contentContainerStyle={{ gap: spacing.md, padding: spacing.xl }}
+      keyboardShouldPersistTaps="handled"
+    >
+      <Text style={styles.h2}>Editar comida</Text>
+      <EditorItems items={items} onChange={setItems} />
+      <Text style={styles.label}>Etiqueta</Text>
+      <TextInput style={styles.input} value={etiqueta} onChangeText={setEtiqueta} />
 
-            {Platform.OS !== 'web' && (
-              <View style={styles.acciones}>
-                <CampoFechaHora valor={valorPicker} onCambio={setLoggedAt}>
-                  <Text style={styles.editar}>
-                    {loggedAt ? `Se guardará para: ${formatoFechaHora(loggedAt)}` : 'Cambiar fecha y hora'}
-                  </Text>
-                </CampoFechaHora>
-                {loggedAt && (
-                  <Pressable style={styles.toqueFecha} onPress={() => setLoggedAt(null)} hitSlop={8}>
-                    <Text style={styles.editar}>Deshacer</Text>
-                  </Pressable>
-                )}
-              </View>
-            )}
-            <View style={styles.filaBotones}>
-              <Pressable style={[styles.boton, styles.secundario]} onPress={onCerrar}>
-                <Text style={styles.botonTextoSec} numberOfLines={1}>
-                  Cancelar
-                </Text>
-              </Pressable>
-              <Pressable
-                style={[styles.boton, styles.primario]}
-                onPress={guardar}
-                disabled={editar.isPending}
-              >
-                {editar.isPending ? (
-                  <ActivityIndicator color={colors.ink} />
-                ) : (
-                  <Text style={styles.botonTexto} numberOfLines={1}>
-                    Guardar
-                  </Text>
-                )}
-              </Pressable>
-            </View>
-          </ScrollView>
+      {Platform.OS !== 'web' && (
+        <View style={styles.acciones}>
+          <CampoFechaHora valor={valorPicker} onCambio={setLoggedAt}>
+            <Text style={styles.editar}>
+              {loggedAt ? `Se guardará para: ${formatoFechaHora(loggedAt)}` : 'Cambiar fecha y hora'}
+            </Text>
+          </CampoFechaHora>
+          {loggedAt && (
+            <Pressable style={styles.toqueFecha} onPress={() => setLoggedAt(null)} hitSlop={8}>
+              <Text style={styles.editar}>Deshacer</Text>
+            </Pressable>
+          )}
         </View>
-      </KeyboardAvoidingView>
-    </Modal>
+      )}
+      <View style={styles.filaBotones}>
+        <Pressable style={[styles.boton, styles.secundario]} onPress={onCerrar}>
+          <Text style={styles.botonTextoSec} numberOfLines={1}>
+            Cancelar
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.boton, styles.primario]}
+          onPress={guardar}
+          disabled={editar.isPending}
+        >
+          {editar.isPending ? (
+            <ActivityIndicator color={colors.ink} />
+          ) : (
+            <Text style={styles.botonTexto} numberOfLines={1}>
+              Guardar
+            </Text>
+          )}
+        </Pressable>
+      </View>
+    </ScrollView>
   );
 }
 
