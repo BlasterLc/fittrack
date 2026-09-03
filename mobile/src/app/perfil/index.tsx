@@ -100,13 +100,16 @@ export default function Perfil() {
   // anota acá y se manda si la pantalla se cierra antes de confirmarlo: sin
   // esto el cambio desaparecía sin ninguna señal.
   const sinConfirmar = useRef<Partial<FichaBorrador>>({});
+  /* eslint-disable react-hooks/exhaustive-deps -- este efecto corre SOLO al
+     desmontar: incluir `guardarCambio` (se recrea cada render) lo dispararía
+     en cada render, y `sinConfirmar.current` se lee en el cleanup a propósito
+     —la última edición sin confirmar al cerrar, no la de cuando se montó—. */
   useEffect(() => {
     return () => {
       if (Object.keys(sinConfirmar.current).length > 0) guardarCambio(sinConfirmar.current);
     };
-    // Solo al desmontar: guardarCambio no depende de este render, lee el
-    // perfil de la caché.
   }, []);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   const [editando, setEditando] = useState(false);
   const [manuales, setManuales] = useState<Partial<Metas>>({});

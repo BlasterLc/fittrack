@@ -15,9 +15,12 @@ export function HistorialPeso() {
   // Del más reciente al más viejo, tal como llega de la API: es el orden
   // natural para la lista, que muestra el último registro arriba.
   const registrosDescendente = historial.data?.pages.flat() ?? [];
-  // El gráfico se lee de izquierda (viejo) a derecha (reciente).
+  // El gráfico se lee de izquierda (viejo) a derecha (reciente). Se parte de
+  // `historial.data` acá dentro para que esa sea la única dependencia real:
+  // `registrosDescendente` es un array nuevo por render y como dep haría que
+  // el useMemo recalculara siempre.
   const registrosAscendente = useMemo(
-    () => registrosDescendente.slice().reverse(),
+    () => (historial.data?.pages.flat() ?? []).reverse(),
     [historial.data],
   );
 

@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { Platform, Pressable, View } from 'react-native';
 // Ruta confirmada contra node_modules/@expo/ui/package.json: el paquete
-// exporta "./community/datetime-picker" (no "./drop-in-replacements").
-import DateTimePicker from '@expo/ui/community/datetime-picker';
+// exporta "./community/datetime-picker" (no "./drop-in-replacements"). Import
+// nombrado y no default: el módulo hace `export default DateTimePicker` y
+// `export { DateTimePicker }` sobre el mismo binding, y usar el default con
+// ese nombre dispara import/no-named-as-default.
+import { DateTimePicker } from '@expo/ui/community/datetime-picker';
 import { colors, fonts, fontSize, spacing } from '@/theme/tokens';
 
 // El selector va aislado en su propio componente por una trampa de Android:

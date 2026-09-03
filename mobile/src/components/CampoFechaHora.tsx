@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Platform, Pressable, StyleSheet } from 'react-native';
-import DateTimePicker from '@expo/ui/community/datetime-picker';
+// Import nombrado, no default: ver la nota en CampoFecha.tsx.
+import { DateTimePicker } from '@expo/ui/community/datetime-picker';
 import { colors } from '@/theme/tokens';
 
 export const VENTANA_DIAS = 7;

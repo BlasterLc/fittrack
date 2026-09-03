@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Pressable, ScrollView, Text, View, StyleSheet } from 'react-native';
+import { Pressable, ScrollView, Text, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { colors, fonts, fontSize, spacing } from '@/theme/tokens';
 import { seriesHechas, type EjercicioBorrador } from '@/lib/sesion';
