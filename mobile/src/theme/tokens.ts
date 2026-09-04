@@ -11,12 +11,19 @@ export const colors = {
   // sobre bg, 4,22 sobre surface y 3,81 sobre surface2. Este es el mismo tono
   // aclarado para usarlo como texto: 6,68 / 6,02 / 5,42.
   primaryText: '#7b90ff',
-  accent: '#e0b341', // solo semántico
-  // Acciones que pierden datos. Separado de accent porque el ámbar ya lo usan
-  // los carbohidratos, y un color con dos significados no significa nada.
+  accent: '#e0b341', // solo semántico: marca lo que necesita atención o falló
+  // Acciones que pierden datos. Separado de accent porque el ámbar ya significa
+  // "atención", y una acción destructiva necesita su propia señal inequívoca.
   danger: '#e5484d',
-  prot: '#5f74e4',
-  carb: '#c18500',
+  // Los tres macros: relleno de barra en TarjetaCalorias y punto en MetasResumen,
+  // nunca texto. Cada uno esquiva los colores ya reservados (índigo de marca,
+  // ámbar de `accent`, rojo de `danger`) para que un macro no se lea como estado.
+  // `prot` era `primary` clavado: la barra salía igual que el anillo de calorías.
+  // `carb` era un oro casi idéntico a `accent`. Contraste sobre `surface2` (la
+  // pista de la barra), que es lo que pide el 3:1 de objeto gráfico: prot 5,02 ·
+  // carb 4,72 · fat 4,95.
+  prot: '#e06aa0',
+  carb: '#d9703a',
   fat: '#00a38f',
   // Superficie de la sesión de entrenamiento: estrategia "committed", el índigo
   // ocupa la pantalla entera para que el modo se lea sin leer. Solo acá.
