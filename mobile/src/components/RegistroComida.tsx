@@ -38,9 +38,18 @@ export function RegistroComida({ onGuardado }: { onGuardado?: () => void }) {
     ultimaSugerencia.current = sugerida;
   }
 
+  function aplicarAnalisis(d: { items: ItemComida[]; etiqueta?: string | null }) {
+    setItems(d.items);
+    // La IA sugiere el momento solo si el texto lo menciona; si no, se
+    // mantiene lo que haya (la sugerencia por hora). No se toca
+    // `ultimaSugerencia`: así un cambio de fecha posterior no la pisa, igual
+    // que una edición manual.
+    if (d.etiqueta) setEtiqueta(d.etiqueta);
+  }
+
   function analizarTexto() {
     if (!texto.trim()) return;
-    analizar.mutate({ texto }, { onSuccess: (d) => setItems(d.items) });
+    analizar.mutate({ texto }, { onSuccess: aplicarAnalisis });
   }
 
   async function elegirFoto() {
@@ -55,7 +64,7 @@ export function RegistroComida({ onGuardado }: { onGuardado?: () => void }) {
       quality: 0.6,
     });
     if (r.canceled || !r.assets[0]?.base64) return;
-    analizar.mutate({ imagen_base64: r.assets[0].base64 }, { onSuccess: (d) => setItems(d.items) });
+    analizar.mutate({ imagen_base64: r.assets[0].base64 }, { onSuccess: aplicarAnalisis });
   }
 
   function guardar() {

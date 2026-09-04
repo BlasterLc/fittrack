@@ -21,11 +21,31 @@ def test_analyze_devuelve_los_items(client, auth_headers, monkeypatch):
     monkeypatch.setattr(
         comida,
         "analizar",
-        lambda texto=None, imagen_base64=None: [ItemComida(**_ITEMS[0])],
+        lambda texto=None, imagen_base64=None: comida.AnalisisComida(
+            items=[ItemComida(**_ITEMS[0])], etiqueta=None
+        ),
     )
     r = client.post("/api/food/analyze", json={"texto": "avena"}, headers=auth_headers)
     assert r.status_code == 200
     assert r.json()["items"][0]["nombre"] == "Avena"
+
+
+def test_analyze_pasa_la_etiqueta_sugerida(client, auth_headers, monkeypatch):
+    import api.services.comida as comida
+    from api.schemas import ItemComida
+
+    monkeypatch.setattr(
+        comida,
+        "analizar",
+        lambda texto=None, imagen_base64=None: comida.AnalisisComida(
+            items=[ItemComida(**_ITEMS[0])], etiqueta="Almuerzo"
+        ),
+    )
+    r = client.post(
+        "/api/food/analyze", json={"texto": "almorcé avena"}, headers=auth_headers
+    )
+    assert r.status_code == 200
+    assert r.json()["etiqueta"] == "Almuerzo"
 
 
 def test_log_persiste_la_comida(client, auth_headers, db_session):

@@ -122,6 +122,9 @@ class AnalizarComidaRequest(BaseModel):
 
 class AnalizarComidaResponse(BaseModel):
     items: list[ItemComida]
+    # El momento del día si la descripción lo menciona; si no, null y el
+    # cliente sugiere por hora.
+    etiqueta: str | None = None
 
 
 class RegistrarComidaRequest(BaseModel):

@@ -51,8 +51,8 @@ router = APIRouter(
 def analizar(body: AnalizarComidaRequest) -> AnalizarComidaResponse:
     if not body.texto and not body.imagen_base64:
         raise HTTPException(status_code=422, detail="Se requiere texto o imagen_base64")
-    items = servicio_comida.analizar(texto=body.texto, imagen_base64=body.imagen_base64)
-    return AnalizarComidaResponse(items=items)
+    analisis = servicio_comida.analizar(texto=body.texto, imagen_base64=body.imagen_base64)
+    return AnalizarComidaResponse(items=analisis.items, etiqueta=analisis.etiqueta)
 
 
 @router.post("/log", response_model=ComidaOut)

@@ -9,10 +9,17 @@ export type ItemComida = {
   fat_g: number;
 };
 
+export type AnalisisComida = {
+  items: ItemComida[];
+  // El momento del día si la descripción lo menciona; si no, null y se sugiere
+  // por hora.
+  etiqueta?: string | null;
+};
+
 export function useAnalizarComida() {
   return useMutation({
     mutationFn: (body: { texto?: string; imagen_base64?: string }) =>
-      apiPost<{ items: ItemComida[] }>('/api/food/analyze', body),
+      apiPost<AnalisisComida>('/api/food/analyze', body),
   });
 }
 

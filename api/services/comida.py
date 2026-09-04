@@ -1,12 +1,41 @@
 import json
+from typing import NamedTuple
 
 import anthropic
 from fastapi import HTTPException
 
 from api.config import Config
 from api.schemas import ItemComida
+from api.services.catalog import normalizar
 
 _client: anthropic.Anthropic | None = None
+
+# Los cinco momentos que maneja la app (labels chilenos, los mismos que
+# `etiquetaPorHora` en el cliente), indexados por su forma normalizada.
+_ETIQUETAS = {
+    "desayuno": "Desayuno",
+    "almuerzo": "Almuerzo",
+    "once": "Once",
+    "cena": "Cena",
+    "colacion": "Colación",
+}
+
+
+class AnalisisComida(NamedTuple):
+    items: list[ItemComida]
+    # El momento del día si el texto lo menciona, si no None: ahí el cliente
+    # cae a la sugerencia por hora.
+    etiqueta: str | None
+
+
+def _etiqueta_canonica(cruda) -> str | None:
+    """Mapea lo que devuelve la IA al label exacto de la app, o None.
+
+    La IA puede contestar en minúsculas, sin acento o con un momento que no
+    manejamos ("brunch"): nada de eso se guarda crudo."""
+    if not isinstance(cruda, str):
+        return None
+    return _ETIQUETAS.get(normalizar(cruda))
 
 
 def _get_client() -> anthropic.Anthropic:
@@ -20,16 +49,22 @@ def _get_client() -> anthropic.Anthropic:
 _PROMPT = (
     "Analiza esta comida y devuelve SOLO un JSON válido con este formato exacto: "
     '{"items": [{"nombre": "string", "calorias": int, "prot_g": float, '
-    '"carbs_g": float, "fat_g": float}]}. '
+    '"carbs_g": float, "fat_g": float}], "etiqueta": string|null}. '
+    'El campo "etiqueta" es el momento del día y solo puede ser uno de: '
+    '"Desayuno", "Almuerzo", "Once", "Cena", "Colación". '
+    "Ponlo únicamente si la descripción menciona o implica claramente ese "
+    'momento (ej: "almorcé...", "en la cena", "para el desayuno"). '
+    'Si no lo menciona, o si es una foto sin descripción, pon "etiqueta": null. '
     "Sin texto adicional, solo el JSON."
 )
 
 
-def analizar(texto: str | None = None, imagen_base64: str | None = None) -> list[ItemComida]:
+def analizar(texto: str | None = None, imagen_base64: str | None = None) -> AnalisisComida:
     """Estima los macros de una comida con Claude Haiku (texto y/o imagen).
 
-    No persiste nada. Devuelve la lista de ítems estimados o levanta un
-    HTTPException con un mensaje en español si la API falla."""
+    No persiste nada. Devuelve los ítems estimados y, si el texto lo menciona,
+    el momento del día; o levanta un HTTPException con un mensaje en español si
+    la API falla."""
     contenido: list = []
     if imagen_base64:
         contenido.append(
@@ -73,6 +108,8 @@ def analizar(texto: str | None = None, imagen_base64: str | None = None) -> list
             if crudo.startswith("json"):
                 crudo = crudo[4:]
         datos = json.loads(crudo.strip())
-        return [ItemComida(**item) for item in datos["items"]]
+        items = [ItemComida(**item) for item in datos["items"]]
     except (json.JSONDecodeError, KeyError, TypeError, IndexError) as e:
         raise HTTPException(status_code=502, detail=f"Respuesta inválida de Claude: {e}")
+
+    return AnalisisComida(items=items, etiqueta=_etiqueta_canonica(datos.get("etiqueta")))
