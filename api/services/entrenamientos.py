@@ -284,6 +284,10 @@ def guardar(sesion: Session, user_id: str, datos: dict) -> dict:
         WorkoutExercise(
             catalog_id=e["catalog_id"],
             orden=i,
+            # `orden` sigue la secuencia en que se marcaron los checks, no la
+            # posición de la fila: el usuario puede saltear una serie y volver
+            # a ella. `completed_at` es obligatorio en cada serie, así que el
+            # orden siempre queda definido.
             series=[
                 WorkoutSet(
                     orden=j,
@@ -291,7 +295,9 @@ def guardar(sesion: Session, user_id: str, datos: dict) -> dict:
                     weight_kg=s["weight_kg"],
                     completed_at=s["completed_at"],
                 )
-                for j, s in enumerate(e["series"])
+                for j, s in enumerate(
+                    sorted(e["series"], key=lambda s: s["completed_at"])
+                )
             ],
         )
         for i, e in enumerate(validos)

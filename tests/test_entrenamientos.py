@@ -107,8 +107,8 @@ def test_guardar_devuelve_el_resumen(db_session):
     assert resumen["omitidos"] == []
 
 
-def test_las_series_se_guardan_con_sus_valores_y_en_orden(db_session):
-    """Lo que el usuario levantó tiene que volver tal cual, sin reordenarse."""
+def test_las_series_se_guardan_con_sus_valores(db_session):
+    """Lo que el usuario levantó tiene que volver tal cual."""
     sembrar_catalogo(db_session)
 
     resumen = servicio.guardar(db_session, USUARIO, cuerpo())
@@ -120,6 +120,27 @@ def test_las_series_se_guardan_con_sus_valores_y_en_orden(db_session):
         {"orden": 0, "reps": 8, "weight_kg": 80.0},
         {"orden": 1, "reps": 5, "weight_kg": 75.0},
     ]
+
+
+def test_las_series_se_ordenan_por_cuando_se_marco_el_check(db_session):
+    """`orden` refleja la secuencia en que se completaron las series, no la
+    posición de la fila: el usuario puede saltear una serie y volver a ella
+    más tarde, y el historial tiene que mostrar cómo se entrenó de verdad."""
+    sembrar_catalogo(db_session)
+    datos = cuerpo()
+    # La fila 0 se marcó DESPUÉS de la fila 1.
+    tardia = dt.datetime(2026, 7, 28, 23, 10, tzinfo=dt.timezone.utc)
+    temprana = dt.datetime(2026, 7, 28, 22, 45, tzinfo=dt.timezone.utc)
+    datos["ejercicios"][0]["series"][0].update({"completed_at": tardia, "reps": 8})
+    datos["ejercicios"][0]["series"][1].update({"completed_at": temprana, "reps": 5})
+
+    resumen = servicio.guardar(db_session, USUARIO, datos)
+
+    series = resumen["ejercicios"][0]["series"]
+    # La que se marcó primero (temprana, reps=5) queda como orden 0.
+    assert [(s["orden"], s["reps"]) for s in series] == [(0, 5), (1, 8)]
+    guardadas = db_session.query(WorkoutSet).order_by(WorkoutSet.orden).all()
+    assert [s.completed_at for s in guardadas] == [temprana, tardia]
 
 
 def test_cada_serie_guarda_su_propia_marca_de_tiempo(db_session):
