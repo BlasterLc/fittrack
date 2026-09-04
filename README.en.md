@@ -7,7 +7,7 @@
 ![Expo SDK 57](https://img.shields.io/badge/Expo_SDK-57-000?logo=expo)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
 ![Supabase](https://img.shields.io/badge/Supabase-Postgres_·_Auth_·_Storage-3ecf8e?logo=supabase&logoColor=white)
-![pytest 337](https://img.shields.io/badge/pytest-337_tests-0a9edc?logo=pytest&logoColor=white)
+![pytest 340](https://img.shields.io/badge/pytest-340_tests-0a9edc?logo=pytest&logoColor=white)
 
 Keeping the gym and food in separate apps is tedious and ends up abandoned. FitTrack puts both in one place, with the focus on the training itself: the session screen lets you check off sets and correct weight and reps with no friction, while the rest of the app builds progress over time —attendance, volume per muscle group, body weight. For food, you describe the meal by text, photo, or voice and Claude estimates calories and macros; you correct it before saving.
 
@@ -91,7 +91,7 @@ Two independent runtimes in the same repository: `api/` (FastAPI, on Railway) an
 - **Supabase** — PostgreSQL (via the session pooler), Auth, and animation Storage
 - **Claude Haiku 4.5** — calorie and macro estimation
 - **Railway** — API deploy · **Vercel** — web deploy
-- **pytest** — 337 tests against local PostgreSQL, no network
+- **pytest** — 340 tests against local PostgreSQL, no network
 
 ---
 

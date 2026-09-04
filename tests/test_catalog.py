@@ -37,6 +37,24 @@ def catalogo(db_session):
     return db_session
 
 
+# Un ejercicio cuyo nombre en inglés y su traducción no comparten ninguna
+# palabra: sirve para probar que la búsqueda cruza los dos idiomas.
+CRUCE = [
+    {
+        "id": "0060", "name": "cable reverse fly", "body_part": "shoulders",
+        "equipment": "cable", "target": "delts",
+        "secondary_muscles": [], "gif_url": "videos/0060-a.gif",
+        "instruction_steps": {"es": ["Paso uno."]},
+    },
+]
+
+
+@pytest.fixture
+def catalogo_cruce(db_session):
+    ingestar(db_session, CRUCE, {"cable reverse fly": "Aperturas invertidas en polea"})
+    return db_session
+
+
 def test_busca_por_texto(client, catalogo, auth_headers):
     respuesta = client.get("/api/catalog/search?q=press", headers=auth_headers)
     assert respuesta.status_code == 200
@@ -49,6 +67,28 @@ def test_busca_por_texto(client, catalogo, auth_headers):
 
 def test_la_busqueda_ignora_acentos_y_mayusculas(client, catalogo, auth_headers):
     respuesta = client.get("/api/catalog/search?q=SENTADÍLLA", headers=auth_headers)
+    assert respuesta.json()["total"] == 1
+
+
+def test_busca_por_el_nombre_en_ingles(client, catalogo, auth_headers):
+    """"squat" no está en "Sentadilla con barra" pero sí en el nombre original."""
+    respuesta = client.get("/api/catalog/search?q=squat", headers=auth_headers)
+    cuerpo = respuesta.json()
+    assert cuerpo["total"] == 1
+    assert cuerpo["resultados"][0]["nombre_es"] == "Sentadilla con barra"
+
+
+def test_busca_por_palabras_sueltas_en_cualquier_orden(client, catalogo, auth_headers):
+    """Cada palabra se busca por separado: el orden y la contigüidad no importan."""
+    respuesta = client.get("/api/catalog/search?q=squat+barbell", headers=auth_headers)
+    cuerpo = respuesta.json()
+    assert cuerpo["total"] == 1
+    assert cuerpo["resultados"][0]["nombre_es"] == "Sentadilla con barra"
+
+
+def test_busca_cruzando_palabras_de_los_dos_idiomas(client, catalogo_cruce, auth_headers):
+    """"fly" solo está en el nombre en inglés; "polea" solo en el español."""
+    respuesta = client.get("/api/catalog/search?q=fly+polea", headers=auth_headers)
     assert respuesta.json()["total"] == 1
 
 

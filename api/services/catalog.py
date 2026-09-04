@@ -14,7 +14,7 @@ def normalizar(texto: str) -> str:
     return " ".join(sin_acentos.lower().split())
 
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from api.models import CatalogExercise
@@ -30,7 +30,17 @@ def _filtrar(consulta, q, body_part, equipment):
     filtrara distinto, `total` volvería a mentir.
     """
     if q:
-        consulta = consulta.where(CatalogExercise.nombre_norm.contains(normalizar(q)))
+        # Cada palabra de la consulta se busca por separado y contra los dos
+        # idiomas: así "press banca" encuentra "Press de banca con barra" sin
+        # ser un substring literal, y "deltoid fly" (que en el dataset solo
+        # existe en inglés y con las palabras separadas) también cae.
+        for palabra in normalizar(q).split():
+            consulta = consulta.where(
+                or_(
+                    CatalogExercise.nombre_norm.contains(palabra),
+                    func.lower(CatalogExercise.nombre_en).contains(palabra),
+                )
+            )
     if body_part:
         consulta = consulta.where(CatalogExercise.body_part_es == body_part)
     if equipment:
