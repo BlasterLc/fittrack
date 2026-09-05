@@ -17,7 +17,6 @@ from api.config import Config
 from api.models import (
     CatalogExercise,
     Meal,
-    MealItem,
     WeightEntry,
     Workout,
     WorkoutExercise,
@@ -182,17 +181,17 @@ def _entrenamiento_exportable(
     )
 
     ids_catalogo = {e.catalog_id for w in entrenamientos for e in w.ejercicios}
-    grupo_por_catalogo = (
-        dict(
-            sesion.execute(
-                select(CatalogExercise.id, _clave_grupo()).where(
-                    CatalogExercise.id.in_(ids_catalogo)
-                )
-            ).all()
-        )
+    fichas = (
+        sesion.execute(
+            select(CatalogExercise.id, CatalogExercise.nombre_es, _clave_grupo()).where(
+                CatalogExercise.id.in_(ids_catalogo)
+            )
+        ).all()
         if ids_catalogo
-        else {}
+        else []
     )
+    grupo_por_catalogo = {id_: grupo for id_, _, grupo in fichas}
+    nombre_por_catalogo = {id_: nombre for id_, nombre, _ in fichas}
 
     sesiones = [
         {
@@ -202,6 +201,17 @@ def _entrenamiento_exportable(
             "grupos": sorted(
                 {grupo_por_catalogo.get(e.catalog_id, SIN_CLASIFICAR) for e in w.ejercicios}
             ),
+            # `w.ejercicios` y `e.series` ya vienen ordenados por `orden`
+            # (relaciones del modelo): es el orden en que se hicieron.
+            "ejercicios": [
+                {
+                    "nombre": nombre_por_catalogo.get(e.catalog_id, SIN_CLASIFICAR),
+                    "series": [
+                        {"reps": s.reps, "weight_kg": s.weight_kg} for s in e.series
+                    ],
+                }
+                for e in w.ejercicios
+            ],
         }
         for w in entrenamientos
     ]
@@ -228,30 +238,26 @@ def _comida_exportable(
     sola comida muy completa en dos días no comió "el promedio de esa
     comida", comió la mitad en promedio por día.
     """
-    filas = sesion.execute(
-        select(
-            Meal.logged_at,
-            func.sum(MealItem.calorias),
-            func.sum(MealItem.prot_g),
-            func.sum(MealItem.carbs_g),
-            func.sum(MealItem.fat_g),
-        )
-        .select_from(MealItem)
-        .join(Meal, MealItem.meal_id == Meal.id)
-        .where(Meal.user_id == user_id, Meal.logged_at >= desde, Meal.logged_at < hasta)
-        .group_by(Meal.id, Meal.logged_at)
-        .order_by(Meal.logged_at)
-    ).all()
+    comidas_db = list(
+        sesion.execute(
+            select(Meal)
+            .where(Meal.user_id == user_id, Meal.logged_at >= desde, Meal.logged_at < hasta)
+            .order_by(Meal.logged_at)
+            .options(selectinload(Meal.items))
+        ).scalars()
+    )
 
     comidas = [
         {
-            "logged_at": logged_at,
-            "calorias": int(calorias),
-            "prot_g": float(prot_g),
-            "carbs_g": float(carbs_g),
-            "fat_g": float(fat_g),
+            "logged_at": m.logged_at,
+            "etiqueta": m.etiqueta,
+            "calorias": sum(i.calorias for i in m.items),
+            "prot_g": sum(i.prot_g for i in m.items),
+            "carbs_g": sum(i.carbs_g for i in m.items),
+            "fat_g": sum(i.fat_g for i in m.items),
+            "items": [i.nombre for i in m.items],
         }
-        for logged_at, calorias, prot_g, carbs_g, fat_g in filas
+        for m in comidas_db
     ]
 
     if comidas:

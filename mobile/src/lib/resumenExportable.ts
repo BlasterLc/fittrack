@@ -1,7 +1,9 @@
 import { claveDeDia } from '@/hooks/useProgreso';
 import type {
   ComidaExportableItem,
+  EjercicioExportable,
   ResumenExportable,
+  SerieExportable,
   SesionExportable,
 } from '@/hooks/useProgreso';
 
@@ -16,6 +18,7 @@ type DiaComida = {
   prot_g: number;
   carbs_g: number;
   fat_g: number;
+  comidas: ComidaExportableItem[];
 };
 
 /** Agrupa comidas por día local. Mismo patrón que `agruparPorDia` en HistorialComida.tsx. */
@@ -26,13 +29,14 @@ function agruparComidaPorDia(comidas: ComidaExportableItem[]): DiaComida[] {
     const clave = claveDeDia(fecha);
     let dia = mapa.get(clave);
     if (!dia) {
-      dia = { fecha, calorias: 0, prot_g: 0, carbs_g: 0, fat_g: 0 };
+      dia = { fecha, calorias: 0, prot_g: 0, carbs_g: 0, fat_g: 0, comidas: [] };
       mapa.set(clave, dia);
     }
     dia.calorias += c.calorias;
     dia.prot_g += c.prot_g;
     dia.carbs_g += c.carbs_g;
     dia.fat_g += c.fat_g;
+    dia.comidas.push(c);
   }
   return [...mapa.values()].sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
 }
@@ -45,6 +49,34 @@ function fmtLarga(fecha: Date): string {
   return fecha.toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+function fmtHora(fecha: Date): string {
+  return fecha.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+/** Sin decimales cuando no hacen falta: "60" en vez de "60.0", pero "62.5" tal cual. */
+function fmtPeso(kg: number): string {
+  return Number.isInteger(kg) ? String(kg) : kg.toFixed(1);
+}
+
+/** "60kg×8" o, en ejercicios de peso corporal (kg=0), "8 reps". */
+function fmtSerie(s: SerieExportable): string {
+  return s.weight_kg > 0 ? `${fmtPeso(s.weight_kg)}kg×${s.reps}` : `${s.reps} reps`;
+}
+
+function fmtEjercicio(e: EjercicioExportable): string {
+  return `<li>${e.nombre}: ${e.series.map(fmtSerie).join(', ')}</li>`;
+}
+
+/** `null` es una comida de antes del #22 (sin etiqueta guardada), no "sin momento del día". */
+function fmtComida(c: ComidaExportableItem): string {
+  const hora = fmtHora(new Date(c.logged_at));
+  return (
+    `<li>${c.etiqueta ?? 'Comida'} (${hora}) — ${c.calorias} kcal` +
+    (c.items.length > 0 ? `<br /><span class="items">${c.items.join(', ')}</span>` : '') +
+    `</li>`
+  );
+}
+
 const SIN_REGISTROS = '<p class="vacio">Sin registros en este período</p>';
 
 function bloqueEntrenamiento(entrenamiento: ResumenExportable['entrenamiento']): string {
@@ -55,18 +87,21 @@ function bloqueEntrenamiento(entrenamiento: ResumenExportable['entrenamiento']):
   const gruposTexto = entrenamiento.series_por_grupo
     .map((g) => `${g.grupo} ${g.series}`)
     .join(', ');
-  const filas = entrenamiento.sesiones
+  const sesiones = entrenamiento.sesiones
     .map(
       (s) =>
-        `<tr><td>${fmtCorta(new Date(s.started_at))}</td><td>${s.duracion_min} min</td>` +
-        `<td>${s.series_totales} series</td><td>${s.grupos.join(', ')}</td></tr>`,
+        `<div class="sesion">` +
+        `<p class="sesion-titulo">${fmtCorta(new Date(s.started_at))} · ${s.duracion_min} min · ` +
+        `${s.series_totales} series · ${s.grupos.join(', ')}</p>` +
+        `<ul class="ejercicios">${s.ejercicios.map(fmtEjercicio).join('')}</ul>` +
+        `</div>`,
     )
     .join('');
 
   return (
     `<p>${dias} días entrenados · duración promedio ${duracion} min</p>` +
     `<p>Series por grupo muscular: ${gruposTexto}</p>` +
-    `<table>${filas}</table>`
+    sesiones
   );
 }
 
@@ -80,20 +115,21 @@ function bloqueComida(comida: ResumenExportable['comida']): string {
   const metaMacros = comida.metas_macros
     ? ` (meta P ${comida.metas_macros.prot} g · C ${comida.metas_macros.carb} g · G ${comida.metas_macros.fat} g)`
     : '';
-  const dias = agruparComidaPorDia(comida.comidas);
-  const filas = dias
+  const dias = agruparComidaPorDia(comida.comidas)
     .map(
       (d) =>
-        `<tr><td>${fmtCorta(d.fecha)}</td><td>${Math.round(d.calorias)} kcal</td>` +
-        `<td>P ${Math.round(d.prot_g)} g</td><td>C ${Math.round(d.carbs_g)} g</td>` +
-        `<td>G ${Math.round(d.fat_g)} g</td></tr>`,
+        `<div class="dia">` +
+        `<p class="dia-titulo">${fmtCorta(d.fecha)} · ${Math.round(d.calorias)} kcal · ` +
+        `P ${Math.round(d.prot_g)} g · C ${Math.round(d.carbs_g)} g · G ${Math.round(d.fat_g)} g</p>` +
+        `<ul class="comidas">${d.comidas.map(fmtComida).join('')}</ul>` +
+        `</div>`,
     )
     .join('');
 
   return (
     `<p>Promedio diario: ${kcal} kcal (meta ${comida.meta_calorias}) · Proteína ${prot} g · ` +
     `Carbohidratos ${carb} g · Grasas ${fat} g${metaMacros}</p>` +
-    `<table>${filas}</table>`
+    dias
   );
 }
 
@@ -134,6 +170,11 @@ export function armarHtmlResumen(resumen: ResumenExportable): string {
           table { border-collapse: collapse; width: 100%; margin-top: 8px; }
           td { padding: 4px 8px; border-bottom: 1px solid #ddd; font-size: 13px; }
           .vacio { color: #666; font-style: italic; }
+          .sesion, .dia { margin-top: 10px; padding-bottom: 6px; border-bottom: 1px solid #ddd; }
+          .sesion-titulo, .dia-titulo { font-size: 13px; font-weight: 600; margin: 0; }
+          .ejercicios, .comidas { margin: 4px 0 0; padding-left: 18px; }
+          .ejercicios li, .comidas li { font-size: 12px; margin-top: 2px; }
+          .items { color: #666; }
         </style>
       </head>
       <body>

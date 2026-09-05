@@ -154,11 +154,22 @@ export function useProgresionEjercicio(catalogId: string) {
 
 export type RegistroPeso = { id: number; kg: number; recorded_at: string };
 
+export type SerieExportable = {
+  reps: number;
+  weight_kg: number;
+};
+
+export type EjercicioExportable = {
+  nombre: string;
+  series: SerieExportable[];
+};
+
 export type SesionExportable = {
   started_at: string;
   duracion_min: number;
   series_totales: number;
   grupos: string[];
+  ejercicios: EjercicioExportable[];
 };
 
 export type EntrenamientoExportable = {
@@ -169,10 +180,12 @@ export type EntrenamientoExportable = {
 
 export type ComidaExportableItem = {
   logged_at: string;
+  etiqueta: string | null;
   calorias: number;
   prot_g: number;
   carbs_g: number;
   fat_g: number;
+  items: string[];
 };
 
 export type ComidaExportable = {

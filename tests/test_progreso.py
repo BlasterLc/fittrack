@@ -747,6 +747,7 @@ def test_export_suma_series_y_dedupe_grupos_entre_ejercicios_de_la_misma_sesion(
     sesion = cuerpo["entrenamiento"]["sesiones"][0]
     assert sesion["series_totales"] == 3
     assert sesion["grupos"] == ["Espalda"]
+    assert [len(e["series"]) for e in sesion["ejercicios"]] == [1, 2]
 
 
 def test_export_sesion_con_ejercicio_borrado_del_catalogo_muestra_sin_clasificar(
@@ -759,6 +760,45 @@ def test_export_sesion_con_ejercicio_borrado_del_catalogo_muestra_sin_clasificar
     ).json()
 
     assert cuerpo["entrenamiento"]["sesiones"][0]["grupos"] == ["Sin clasificar"]
+    assert cuerpo["entrenamiento"]["sesiones"][0]["ejercicios"][0]["nombre"] == "Sin clasificar"
+
+
+def test_export_sesion_incluye_ejercicios_con_sus_series(client, auth_headers, db_session):
+    _crear_ficha(db_session, "0001", "Pecho")
+    entrenamiento = Workout(
+        user_id=YO,
+        client_id=str(uuid.uuid4()),
+        routine_id=None,
+        started_at=BASE,
+        ended_at=BASE + dt.timedelta(minutes=40),
+    )
+    entrenamiento.ejercicios = [
+        WorkoutExercise(
+            catalog_id="0001",
+            orden=0,
+            series=[
+                WorkoutSet(orden=0, reps=8, weight_kg=60, completed_at=BASE),
+                WorkoutSet(orden=1, reps=10, weight_kg=55, completed_at=BASE),
+            ],
+        ),
+    ]
+    db_session.add(entrenamiento)
+    db_session.commit()
+
+    cuerpo = client.get(
+        "/api/progress/export", params=_ventana_dos_dias(), headers=auth_headers
+    ).json()
+
+    ejercicios = cuerpo["entrenamiento"]["sesiones"][0]["ejercicios"]
+    assert ejercicios == [
+        {
+            "nombre": "Equis",
+            "series": [
+                {"reps": 8, "weight_kg": 60.0},
+                {"reps": 10, "weight_kg": 55.0},
+            ],
+        }
+    ]
 
 
 def test_export_promedia_calorias_y_macros_sobre_los_dias_de_la_ventana(
@@ -786,6 +826,36 @@ def test_export_promedia_calorias_y_macros_sobre_los_dias_de_la_ventana(
     assert comida["promedio_carbs_g"] == 17.5
     assert comida["promedio_fat_g"] == 4.0
     assert len(comida["comidas"]) == 3
+
+
+def test_export_comida_sin_etiqueta_es_null(client, auth_headers, db_session):
+    _crear_comida(db_session, YO, BASE, calorias=300, prot_g=10, carbs_g=20, fat_g=5)
+
+    cuerpo = client.get(
+        "/api/progress/export", params=_ventana_dos_dias(), headers=auth_headers
+    ).json()
+
+    assert cuerpo["comida"]["comidas"][0]["etiqueta"] is None
+    assert cuerpo["comida"]["comidas"][0]["items"] == ["X"]
+
+
+def test_export_comida_incluye_etiqueta_y_nombres_de_los_items(client, auth_headers, db_session):
+    comida = Meal(user_id=YO, logged_at=BASE, etiqueta="Desayuno")
+    comida.items = [
+        MealItem(nombre="Palta", calorias=100, prot_g=2, carbs_g=5, fat_g=8),
+        MealItem(nombre="Pan", calorias=200, prot_g=6, carbs_g=35, fat_g=3),
+    ]
+    db_session.add(comida)
+    db_session.commit()
+
+    cuerpo = client.get(
+        "/api/progress/export", params=_ventana_dos_dias(), headers=auth_headers
+    ).json()
+
+    item = cuerpo["comida"]["comidas"][0]
+    assert item["etiqueta"] == "Desayuno"
+    assert item["items"] == ["Palta", "Pan"]
+    assert item["calorias"] == 300
 
 
 def test_export_usa_la_meta_del_perfil_si_existe(client, auth_headers, db_session):

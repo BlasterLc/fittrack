@@ -337,6 +337,18 @@ class CrearRegistroPesoRequest(BaseModel):
     kg: float
 
 
+class SerieExportable(BaseModel):
+    reps: int
+    weight_kg: float
+
+
+class EjercicioExportable(BaseModel):
+    """Un ejercicio dentro de una sesión exportable, con sus series en orden."""
+
+    nombre: str
+    series: list[SerieExportable]
+
+
 class SesionExportable(BaseModel):
     """Una sesión de entrenamiento dentro del resumen exportable."""
 
@@ -344,6 +356,7 @@ class SesionExportable(BaseModel):
     duracion_min: int
     series_totales: int
     grupos: list[str]
+    ejercicios: list[EjercicioExportable]
 
 
 class EntrenamientoExportable(BaseModel):
@@ -354,13 +367,16 @@ class EntrenamientoExportable(BaseModel):
 
 
 class ComidaExportableItem(BaseModel):
-    """Una comida (ya sumados sus ítems), para que el cliente la agrupe por día."""
+    """Una comida (ya sumados sus ítems, más el detalle de cada uno), para que
+    el cliente la agrupe por día."""
 
     logged_at: datetime
+    etiqueta: str | None
     calorias: int
     prot_g: float
     carbs_g: float
     fat_g: float
+    items: list[str]
 
 
 class ComidaExportable(BaseModel):
