@@ -6,31 +6,16 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal",
-      "env": {
-        "EXPO_PUBLIC_API_URL": "https://fittrack-v2-production-f867.up.railway.app",
-        "EXPO_PUBLIC_SUPABASE_URL": "https://ieptxspnwvqdonplakdo.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImllcHR4c3Bud3ZxZG9ucGxha2RvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3Njk2MTMsImV4cCI6MjEwMDM0NTYxM30.VUmnXgMTSaWU1yFKkcDvsEyk3e0SCGJhF09RMBb0V80"
-      }
+      "distribution": "internal"
     },
     "preview": {
       "distribution": "internal",
       "android": {
         "buildType": "apk"
-      },
-      "env": {
-        "EXPO_PUBLIC_API_URL": "https://fittrack-v2-production-f867.up.railway.app",
-        "EXPO_PUBLIC_SUPABASE_URL": "https://ieptxspnwvqdonplakdo.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImllcHR4c3Bud3ZxZG9ucGxha2RvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3Njk2MTMsImV4cCI6MjEwMDM0NTYxM30.VUmnXgMTSaWU1yFKkcDvsEyk3e0SCGJhF09RMBb0V80"
       }
     },
     "production": {
-      "autoIncrement": true,
-      "env": {
-        "EXPO_PUBLIC_API_URL": "https://fittrack-v2-production-f867.up.railway.app",
-        "EXPO_PUBLIC_SUPABASE_URL": "https://ieptxspnwvqdonplakdo.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImllcHR4c3Bud3ZxZG9ucGxha2RvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3Njk2MTMsImV4cCI6MjEwMDM0NTYxM30.VUmnXgMTSaWU1yFKkcDvsEyk3e0SCGJhF09RMBb0V80"
-      }
+      "autoIncrement": true
     }
   },
   "submit": {
