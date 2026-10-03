@@ -134,6 +134,23 @@ function Fila({
   const [repsTexto, setRepsTexto] = useState<string | null>(null);
   const hecha = serie.completadaEn !== null;
 
+  // El estado se actualiza mientras se teclea, no solo al soltar el campo: con
+  // `keyboardShouldPersistTaps="handled"`, tocar «+ Serie» o ✓ con el teclado
+  // abierto no dispara `onBlur`, y la acción leería los valores viejos. El
+  // texto crudo queda solo para mostrar; lo que no es un número (campo vacío)
+  // no se confirma hasta soltar.
+  function escribirKg(texto: string) {
+    setKgTexto(texto);
+    const valor = leerNumero(texto);
+    if (Number.isFinite(valor)) onEditar({ kg: normalizarKg(valor) });
+  }
+
+  function escribirReps(texto: string) {
+    setRepsTexto(texto);
+    const valor = leerNumero(texto);
+    if (Number.isFinite(valor)) onEditar({ reps: normalizarReps(valor) });
+  }
+
   function confirmarKg() {
     if (kgTexto !== null) onEditar({ kg: normalizarKg(leerNumero(kgTexto)) });
     setKgTexto(null);
@@ -174,7 +191,7 @@ function Fila({
       <TextInput
         style={[styles.campo, styles.colValor, hecha && styles.campoHecho]}
         value={kgTexto ?? formatoKg(serie.kg)}
-        onChangeText={setKgTexto}
+        onChangeText={escribirKg}
         onBlur={confirmarKg}
         onSubmitEditing={confirmarKg}
         keyboardType="decimal-pad"
@@ -186,7 +203,7 @@ function Fila({
       <TextInput
         style={[styles.campo, styles.colValor, hecha && styles.campoHecho]}
         value={repsTexto ?? String(serie.reps)}
-        onChangeText={setRepsTexto}
+        onChangeText={escribirReps}
         onBlur={confirmarReps}
         onSubmitEditing={confirmarReps}
         keyboardType="number-pad"
