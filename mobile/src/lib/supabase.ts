@@ -43,6 +43,11 @@ export const supabase = createClient(url, anonKey, {
     storage,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false,
+    // PKCE es el flujo que Supabase recomienda para OAuth en apps: la sesión
+    // llega como `code` de un solo uso, no como tokens en la URL. En web el
+    // cliente lo intercambia solo al volver de Google; en nativo lo hace
+    // `iniciarSesionConGoogle` a mano con el deep link.
+    flowType: 'pkce',
+    detectSessionInUrl: Platform.OS === 'web',
   },
 });

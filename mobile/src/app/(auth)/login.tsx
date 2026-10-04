@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
+import { iniciarSesionConGoogle } from '@/lib/googleAuth';
 import { colors, spacing, fonts, fontSize } from '@/theme/tokens';
 
 type Modo = 'ingresar' | 'crear';
@@ -57,6 +58,16 @@ export default function Login() {
     } else if (!data.session) {
       setCorreoEnviado(email);
     }
+    setLoading(false);
+  }
+
+  async function entrarConGoogle() {
+    setLoading(true);
+    setError(null);
+    const resultado = await iniciarSesionConGoogle();
+    // En web la página se recarga al volver de Google y esto no llega a
+    // ejecutarse. Cancelar el navegador devuelve `mensaje: null`: sin error.
+    if (!resultado.ok) setError(resultado.mensaje);
     setLoading(false);
   }
 
@@ -130,6 +141,19 @@ export default function Login() {
               </Text>
             )}
           </Pressable>
+          <View style={styles.separador}>
+            <View style={styles.separadorLinea} />
+            <Text style={styles.separadorTexto}>o</Text>
+            <View style={styles.separadorLinea} />
+          </View>
+          <Pressable
+            style={styles.botonGoogle}
+            onPress={entrarConGoogle}
+            disabled={loading}
+            accessibilityRole="button"
+          >
+            <Text style={styles.botonGoogleTexto}>Continuar con Google</Text>
+          </Pressable>
           <Pressable
             style={styles.alternar}
             onPress={() => cambiarModo(modo === 'ingresar' ? 'crear' : 'ingresar')}
@@ -178,6 +202,19 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   botonTexto: { color: colors.ink, fontFamily: fonts.semibold, fontSize: fontSize.lg },
+  separador: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  separadorLinea: { flex: 1, height: 1, backgroundColor: colors.line },
+  separadorTexto: { color: colors.muted, fontFamily: fonts.regular, fontSize: fontSize.sm },
+  botonGoogle: {
+    minHeight: 48,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  botonGoogleTexto: { color: colors.ink, fontFamily: fonts.semibold, fontSize: fontSize.base },
   aviso: {
     color: colors.ink,
     fontFamily: fonts.regular,
