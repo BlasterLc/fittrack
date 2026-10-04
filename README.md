@@ -4,13 +4,14 @@
 
 **Idioma:** Español · [English](README.en.md)
 
+[![CI](https://github.com/BlasterLc/fittrack/actions/workflows/ci.yml/badge.svg)](https://github.com/BlasterLc/fittrack/actions/workflows/ci.yml)
 ![Expo SDK 57](https://img.shields.io/badge/Expo_SDK-57-000?logo=expo)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.142-009688?logo=fastapi&logoColor=white)
 ![Supabase](https://img.shields.io/badge/Supabase-Postgres_·_Auth_·_Storage-3ecf8e?logo=supabase&logoColor=white)
 ![pytest 358](https://img.shields.io/badge/pytest-358_tests-0a9edc?logo=pytest&logoColor=white)
 ![MIT](https://img.shields.io/badge/licencia-MIT-green)
 
-Llevar el gimnasio y la comida en apps separadas es tedioso y termina abandonado. FitTrack junta las dos cosas con el foco puesto en el momento del entrenamiento: la pantalla de sesión deja marcar series y corregir peso y repeticiones sin fricción, y el resto de la app arma el progreso a lo largo del tiempo —asistencia, volumen por grupo muscular, peso corporal—. Para la comida se describe el plato por texto, foto o voz y Claude estima calorías y macros; el usuario corrige antes de guardar.
+Llevar el gimnasio y la comida en apps separadas es tedioso y termina abandonado. FitTrack junta las dos cosas con el foco puesto en el momento del entrenamiento: la pantalla de sesión deja marcar series y corregir peso y repeticiones sin fricción, y el resto de la app arma el progreso a lo largo del tiempo —asistencia, volumen por grupo muscular, peso corporal—. Para la comida se describe el plato por texto, foto o voz y Claude estima calorías y macros de forma aproximada —son estimaciones y pueden fallar—, y el usuario las corrige antes de guardar.
 
 La app nativa (iOS y Android) y la versión web son el mismo código de `mobile/`: Expo Router trata el navegador como una plataforma más. La web se instala como PWA, lo que permite llegar a iPhone sin pagar el Apple Developer Program. Detrás hay un backend propio en FastAPI y Supabase para datos, identidad y archivos.
 
@@ -39,6 +40,7 @@ La app nativa (iOS y Android) y la versión web son el mismo código de `mobile/
 
 **Nutrición**
 - Se describe la comida por texto, foto o voz; Claude estima calorías y macros; el usuario corrige y confirma antes de guardar.
+- Las cifras son **estimaciones aproximadas** de un modelo de IA, no mediciones: pueden fallar con porciones, preparaciones o marcas concretas.
 - Registro y edición de comidas de días anteriores (hasta 7 días atrás).
 - Anillo de calorías del día con metas configurables.
 
@@ -80,7 +82,7 @@ Dos runtimes independientes en el mismo repositorio: `api/` (FastAPI, en Railway
 
 **Seguridad en capas.** Row Level Security activo en todas las tablas de Supabase, aunque la API se conecte directo a Postgres; la API verifica firma, emisor, audiencia y expiración del JWT. El endpoint que llama a Claude tiene límite de uso por usuario, tope de tamaño de cuerpo y cotas en cada campo. Las cotas validan solo lo que se escribe, no lo ya guardado. La documentación interactiva queda apagada en producción (`ENABLE_DOCS=1` solo en local) y la web sirve cabeceras de seguridad desde Vercel.
 
-**Nutrición con un paso de revisión.** La descripción del plato —texto, foto o voz— va a Claude Haiku, que devuelve calorías y macros. Esa estimación nunca se guarda sola: el usuario la corrige y confirma primero.
+**Nutrición con un paso de revisión.** La descripción del plato —texto, foto o voz— va a Claude Haiku, que devuelve calorías y macros. Esa estimación nunca se guarda sola: el usuario la corrige y confirma primero, porque es una aproximación de un modelo de IA y puede equivocarse. No sustituye la medición real ni el consejo de un profesional de la salud.
 
 ---
 
