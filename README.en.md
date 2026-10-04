@@ -1,19 +1,18 @@
-# FitTrack v2
+# FitTrack
 
 **Track your workouts and your nutrition from a single app, on your phone or in the browser.**
 
 **Language:** [Español](README.md) · English
 
 ![Expo SDK 57](https://img.shields.io/badge/Expo_SDK-57-000?logo=expo)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.142-009688?logo=fastapi&logoColor=white)
 ![Supabase](https://img.shields.io/badge/Supabase-Postgres_·_Auth_·_Storage-3ecf8e?logo=supabase&logoColor=white)
-![pytest 345](https://img.shields.io/badge/pytest-345_tests-0a9edc?logo=pytest&logoColor=white)
+![pytest 358](https://img.shields.io/badge/pytest-358_tests-0a9edc?logo=pytest&logoColor=white)
+![MIT](https://img.shields.io/badge/license-MIT-green)
 
 Keeping the gym and food in separate apps is tedious and ends up abandoned. FitTrack puts both in one place, with the focus on the training itself: the session screen lets you check off sets and correct weight and reps with no friction, while the rest of the app builds progress over time —attendance, volume per muscle group, body weight. For food, you describe the meal by text, photo, or voice and Claude estimates calories and macros; you correct it before saving.
 
 The native app (iOS and Android) and the web version are the same `mobile/` codebase: Expo Router treats the browser as just another platform. The web build installs as a PWA, which reaches iPhone without paying for the Apple Developer Program. Behind it is a custom FastAPI backend and Supabase for data, identity, and files.
-
-A full rebuild of [fittrack](https://github.com/BlasterLc/fittrack), now archived for reference.
 
 ---
 
@@ -50,7 +49,7 @@ A full rebuild of [fittrack](https://github.com/BlasterLc/fittrack), now archive
 - Export of a PDF summary to review or paste into a chat.
 
 **Account**
-- Public sign-up with email confirmation and a mandatory onboarding wizard (date of birth, basic data, goals).
+- Public sign-up with email confirmation, or Google sign-in, and a mandatory onboarding wizard (date of birth, basic data, goals).
 
 ---
 
@@ -75,9 +74,11 @@ Two independent runtimes in the same repository: `api/` (FastAPI, on Railway) an
 
 **One codebase for three platforms.** Expo Router treats the web as just another target, so iOS, Android, and the PWA all come from the same `mobile/`. Bringing the native app to the browser exposed two traps that neither `tsc` nor the bundler catches: `Alert.alert` does nothing in `react-native-web` (solved with a wrapper that uses `window.confirm` on web), and the Supabase client's `localStorage` does not exist during the static Node render that `expo export` performs.
 
-**Delegated identity, in-house verification.** The client requests the JWT straight from Supabase Auth; the API never issues tokens, it only verifies their signature. `api/auth.py` dispatches on the token's algorithm: ES256/RS256 are verified against the project's JWKS (client cached per process), and HS256 is kept only for test tokens, which are signed without touching the network.
+**Delegated identity, in-house verification.** The client requests the JWT straight from Supabase Auth; the API never issues tokens, it only verifies their signature. `api/auth.py` dispatches on the token's algorithm: ES256/RS256 are verified against the project's JWKS (client cached per process), and HS256 is kept only for test tokens (rejected unless `ALLOW_HS256_TESTS=1`), which are signed without touching the network. Google sign-in uses Supabase's OAuth flow with PKCE: the app opens the system browser and exchanges the returned `code` for a session.
 
 **Per-user isolation with no foreign keys.** Every personal table filters by the user's UUID, and the catalog is shared. There are no FKs to the `auth` schema so the test suite can run against a local Postgres that lacks it; in exchange, every id coming from the client is checked as the caller's own before it is used.
+
+**Layered security.** Row Level Security is on for every Supabase table even though the API connects straight to Postgres; the API verifies the JWT's signature, issuer, audience and expiry. The endpoint that calls Claude has a per-user rate limit, a request-body size cap and bounds on every field. Those bounds validate only what is written, never what is already stored. Interactive docs are off in production (`ENABLE_DOCS=1` only locally) and the web build ships security headers from Vercel.
 
 **Nutrition with a review step.** The meal description —text, photo, or voice— goes to Claude Haiku, which returns calories and macros. That estimate is never saved on its own: the user corrects and confirms it first.
 
@@ -91,7 +92,7 @@ Two independent runtimes in the same repository: `api/` (FastAPI, on Railway) an
 - **Supabase** — PostgreSQL (via the session pooler), Auth, and animation Storage
 - **Claude Haiku 4.5** — calorie and macro estimation
 - **Railway** — API deploy · **Vercel** — web deploy
-- **pytest** — 345 tests against local PostgreSQL, no network
+- **pytest** — 358 tests against local PostgreSQL, no network
 
 ---
 
@@ -152,7 +153,9 @@ The backend enables CORS for that origin through the `WEB_ORIGIN` variable; if i
 |---|---|---|
 | `DATABASE_URL` | backend | Supabase Postgres, via the session pooler, `postgresql+psycopg://` prefix |
 | `SUPABASE_URL` | backend | Base of the Storage URLs |
-| `SUPABASE_JWT_SECRET` | backend | Verifies the signature of test JWTs (HS256) |
+| `SUPABASE_JWT_SECRET` | tests only | Test HS256 JWTs; only accepted with `ALLOW_HS256_TESTS=1`. **Do not set in production** (Supabase signs with ES256) |
+| `ALLOW_HS256_TESTS` | tests only | Enables the HS256 branch of `api/auth.py`; **do not set in production** |
+| `ENABLE_DOCS` | local only | `1` publishes `/docs`, `/redoc` and `/openapi.json` |
 | `WEB_ORIGIN` | backend (web) | Allowed origin for the PWA's CORS |
 | `ANTHROPIC_API_KEY` | backend | Calorie and macro estimation |
 | `TEST_DATABASE_URL` | local only | Local Postgres for the tests |
@@ -195,4 +198,4 @@ The animations are owned by **Gym visual** (<https://gymvisual.com/>) and are re
 
 ## License
 
-Personal project, no distribution license.
+[MIT](LICENSE) for the code. The exercise data and animations have their own terms (see above) and are not covered by this license.

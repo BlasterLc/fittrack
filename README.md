@@ -1,19 +1,18 @@
-# FitTrack v2
+# FitTrack
 
 **Registra tus entrenamientos y tu alimentación desde una sola app, en el teléfono o en el navegador.**
 
 **Idioma:** Español · [English](README.en.md)
 
 ![Expo SDK 57](https://img.shields.io/badge/Expo_SDK-57-000?logo=expo)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.142-009688?logo=fastapi&logoColor=white)
 ![Supabase](https://img.shields.io/badge/Supabase-Postgres_·_Auth_·_Storage-3ecf8e?logo=supabase&logoColor=white)
-![pytest 345](https://img.shields.io/badge/pytest-345_tests-0a9edc?logo=pytest&logoColor=white)
+![pytest 358](https://img.shields.io/badge/pytest-358_tests-0a9edc?logo=pytest&logoColor=white)
+![MIT](https://img.shields.io/badge/licencia-MIT-green)
 
 Llevar el gimnasio y la comida en apps separadas es tedioso y termina abandonado. FitTrack junta las dos cosas con el foco puesto en el momento del entrenamiento: la pantalla de sesión deja marcar series y corregir peso y repeticiones sin fricción, y el resto de la app arma el progreso a lo largo del tiempo —asistencia, volumen por grupo muscular, peso corporal—. Para la comida se describe el plato por texto, foto o voz y Claude estima calorías y macros; el usuario corrige antes de guardar.
 
 La app nativa (iOS y Android) y la versión web son el mismo código de `mobile/`: Expo Router trata el navegador como una plataforma más. La web se instala como PWA, lo que permite llegar a iPhone sin pagar el Apple Developer Program. Detrás hay un backend propio en FastAPI y Supabase para datos, identidad y archivos.
-
-Reconstrucción completa de [fittrack](https://github.com/BlasterLc/fittrack), que queda archivado como referencia.
 
 ---
 
@@ -50,7 +49,7 @@ Reconstrucción completa de [fittrack](https://github.com/BlasterLc/fittrack), q
 - Exportación de un resumen en PDF para revisar o pegar en un chat.
 
 **Cuenta**
-- Registro público con confirmación por correo y un asistente de onboarding obligatorio (fecha de nacimiento, datos básicos, metas).
+- Registro público con confirmación por correo, o ingreso con Google, y un asistente de onboarding obligatorio (fecha de nacimiento, datos básicos, metas).
 
 ---
 
@@ -75,9 +74,11 @@ Dos runtimes independientes en el mismo repositorio: `api/` (FastAPI, en Railway
 
 **Una base de código para tres plataformas.** Expo Router trata la web como un target más, así que iOS, Android y la PWA salen del mismo `mobile/`. Llevar la app nativa al navegador destapó dos trampas que ni `tsc` ni el bundler detectan: `Alert.alert` no hace nada en `react-native-web` (resuelto con un wrapper que usa `window.confirm` en web), y el `localStorage` del cliente de Supabase no existe durante el render estático en Node que hace `expo export`.
 
-**Identidad delegada, verificación propia.** El cliente pide el JWT directamente a Supabase Auth; la API nunca emite tokens, solo valida su firma. `api/auth.py` despacha según el algoritmo del token: ES256/RS256 se verifican contra el JWKS del proyecto (cliente cacheado por proceso), y HS256 queda solo para los tokens de prueba, que se firman sin tocar la red.
+**Identidad delegada, verificación propia.** El cliente pide el JWT directamente a Supabase Auth; la API nunca emite tokens, solo valida su firma. `api/auth.py` despacha según el algoritmo del token: ES256/RS256 se verifican contra el JWKS del proyecto (cliente cacheado por proceso), y HS256 queda solo para los tokens de prueba (se rechaza salvo con `ALLOW_HS256_TESTS=1`), que se firman sin tocar la red. El ingreso con Google usa el flujo OAuth de Supabase con PKCE: la app abre el navegador del sistema y canjea el `code` devuelto por una sesión.
 
 **Aislamiento por usuario sin llaves foráneas.** Cada tabla personal filtra por el UUID del usuario y el catálogo es compartido. No hay FK al esquema `auth` para que la batería de pruebas corra contra un Postgres local que no lo tiene; a cambio, todo id que llega del cliente se valida como propio antes de usarse.
+
+**Seguridad en capas.** Row Level Security activo en todas las tablas de Supabase, aunque la API se conecte directo a Postgres; la API verifica firma, emisor, audiencia y expiración del JWT. El endpoint que llama a Claude tiene límite de uso por usuario, tope de tamaño de cuerpo y cotas en cada campo. Las cotas validan solo lo que se escribe, no lo ya guardado. La documentación interactiva queda apagada en producción (`ENABLE_DOCS=1` solo en local) y la web sirve cabeceras de seguridad desde Vercel.
 
 **Nutrición con un paso de revisión.** La descripción del plato —texto, foto o voz— va a Claude Haiku, que devuelve calorías y macros. Esa estimación nunca se guarda sola: el usuario la corrige y confirma primero.
 
@@ -152,7 +153,9 @@ El backend habilita CORS para ese origen mediante la variable `WEB_ORIGIN`; si n
 |---|---|---|
 | `DATABASE_URL` | backend | Postgres de Supabase, vía _session pooler_, prefijo `postgresql+psycopg://` |
 | `SUPABASE_URL` | backend | Base de las URLs de Storage |
-| `SUPABASE_JWT_SECRET` | backend | Valida la firma de los JWT de prueba (HS256) |
+| `SUPABASE_JWT_SECRET` | solo tests | JWT de prueba HS256; solo se acepta con `ALLOW_HS256_TESTS=1`. **No definir en producción** (Supabase firma con ES256) |
+| `ALLOW_HS256_TESTS` | solo tests | Habilita la rama HS256 de `api/auth.py`; **no definir en producción** |
+| `ENABLE_DOCS` | solo local | `1` publica `/docs`, `/redoc` y `/openapi.json` |
 | `WEB_ORIGIN` | backend (web) | Origen permitido para CORS de la PWA |
 | `ANTHROPIC_API_KEY` | backend | Estimación de calorías y macros |
 | `TEST_DATABASE_URL` | solo local | Postgres local para las pruebas |
@@ -195,4 +198,4 @@ Las animaciones son propiedad de **Gym visual** (<https://gymvisual.com/>) y se 
 
 ## Licencia
 
-Proyecto personal, sin licencia de distribución.
+[MIT](LICENSE) para el código. Los datos de ejercicios y las animaciones tienen sus propias condiciones (ver arriba) y no quedan cubiertos por esta licencia.

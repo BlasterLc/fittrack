@@ -4,9 +4,6 @@ Módulo puro: no toca la base de datos ni conoce el modelo. Recibe datos
 sueltos y devuelve números, así los valores —que es lo que el usuario mira
 todos los días— se pueden probar sin montar un perfil.
 
-La fórmula, con su justificación, está en el spec
-`docs/superpowers/specs/2026-07-27-fittrack-v2-perfil-design.md` (sección 4).
-
 Metabolismo basal, Mifflin-St Jeor:
 
     Hombres:  10 x peso_kg + 6,25 x altura_cm - 5 x edad + 5
