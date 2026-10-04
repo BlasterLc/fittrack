@@ -14,6 +14,7 @@ from api.schemas import (
     RegistrarComidaRequest,
 )
 from api.services import comida as servicio_comida
+from api.services import ratelimit
 
 VENTANA_DIAS_LOGGED_AT = 7
 
@@ -48,9 +49,12 @@ router = APIRouter(
 
 
 @router.post("/analyze", response_model=AnalizarComidaResponse)
-def analizar(body: AnalizarComidaRequest) -> AnalizarComidaResponse:
+def analizar(
+    body: AnalizarComidaRequest, user_id: str = Depends(get_current_user)
+) -> AnalizarComidaResponse:
     if not body.texto and not body.imagen_base64:
         raise HTTPException(status_code=422, detail="Se requiere texto o imagen_base64")
+    ratelimit.verificar(user_id)
     analisis = servicio_comida.analizar(texto=body.texto, imagen_base64=body.imagen_base64)
     return AnalizarComidaResponse(items=analisis.items, etiqueta=analisis.etiqueta)
 

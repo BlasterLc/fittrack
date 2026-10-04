@@ -37,8 +37,8 @@ def _filtrar(consulta, q, body_part, equipment):
         for palabra in normalizar(q).split():
             consulta = consulta.where(
                 or_(
-                    CatalogExercise.nombre_norm.contains(palabra),
-                    func.lower(CatalogExercise.nombre_en).contains(palabra),
+                    CatalogExercise.nombre_norm.contains(palabra, autoescape=True),
+                    func.lower(CatalogExercise.nombre_en).contains(palabra, autoescape=True),
                 )
             )
     if body_part:

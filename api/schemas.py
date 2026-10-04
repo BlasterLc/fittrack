@@ -108,16 +108,20 @@ class ResumenDia(BaseModel):
 
 
 class ItemComida(BaseModel):
-    nombre: str
-    calorias: int
-    prot_g: float
-    carbs_g: float
-    fat_g: float
+    nombre: str = Field(max_length=160)
+    calorias: int = Field(ge=0, le=10_000)
+    prot_g: float = Field(ge=0, le=1_000)
+    carbs_g: float = Field(ge=0, le=1_000)
+    fat_g: float = Field(ge=0, le=1_000)
+
+
+# ~5 MB de imagen (tope de Anthropic) codificados en base64.
+MAX_IMAGEN_BASE64 = 7_000_000
 
 
 class AnalizarComidaRequest(BaseModel):
-    texto: str | None = None
-    imagen_base64: str | None = None
+    texto: str | None = Field(default=None, max_length=1_000)
+    imagen_base64: str | None = Field(default=None, max_length=MAX_IMAGEN_BASE64)
 
 
 class AnalizarComidaResponse(BaseModel):
@@ -128,8 +132,8 @@ class AnalizarComidaResponse(BaseModel):
 
 
 class RegistrarComidaRequest(BaseModel):
-    items: list[ItemComida]
-    etiqueta: str | None = None
+    items: list[ItemComida] = Field(max_length=50)
+    etiqueta: str | None = Field(default=None, max_length=40)
     logged_at: datetime | None = None
 
 
@@ -168,8 +172,8 @@ class RutinaDetalle(BaseModel):
 
 
 class GuardarRutinaRequest(BaseModel):
-    nombre: str
-    catalog_ids: list[str]
+    nombre: str = Field(max_length=80)
+    catalog_ids: list[str] = Field(max_length=100)
 
 
 class ArchivarRutinaRequest(BaseModel):
@@ -211,22 +215,22 @@ class PrevisualizacionOut(BaseModel):
 
 
 class MetasManualesIn(BaseModel):
-    calorias: int
-    prot_g: int
-    carb_g: int
-    fat_g: int
+    calorias: int = Field(ge=0, le=20_000)
+    prot_g: int = Field(ge=0, le=2_000)
+    carb_g: int = Field(ge=0, le=2_000)
+    fat_g: int = Field(ge=0, le=2_000)
 
 
 class GuardarPerfilRequest(BaseModel):
     """Describe el estado final del perfil: lo que no llega, se borra."""
 
-    nombre: str | None = None
-    sexo: str | None = None
+    nombre: str | None = Field(default=None, max_length=60)
+    sexo: str | None = Field(default=None, max_length=10)
     fecha_nacimiento: date | None = None
-    altura_cm: int | None = None
-    peso_kg: float | None = None
-    actividad: str | None = None
-    objetivo: str | None = None
+    altura_cm: int | None = Field(default=None, ge=0, le=300)
+    peso_kg: float | None = Field(default=None, ge=0, le=500)
+    actividad: str | None = Field(default=None, max_length=10)
+    objetivo: str | None = Field(default=None, max_length=10)
     # En null borra las metas escritas a mano y vuelve al cálculo automático.
     metas_manuales: MetasManualesIn | None = None
 
@@ -239,20 +243,20 @@ class SerieRequest(BaseModel):
 
 
 class EjercicioSesionRequest(BaseModel):
-    catalog_id: str
+    catalog_id: str = Field(max_length=8)
     orden: int
-    series: list[SerieRequest] = Field(min_length=1)
+    series: list[SerieRequest] = Field(min_length=1, max_length=100)
 
 
 class GuardarEntrenamientoRequest(BaseModel):
-    client_id: str
+    client_id: str = Field(max_length=36)
     routine_id: int | None = None
     started_at: datetime
     ended_at: datetime
-    ejercicios: list[EjercicioSesionRequest] = Field(min_length=1)
+    ejercicios: list[EjercicioSesionRequest] = Field(min_length=1, max_length=100)
     # catalog_id de los ejercicios agregados sobre la marcha que el usuario
     # confirmó sumar a la rutina.
-    agregar_a_rutina: list[str] = Field(default_factory=list)
+    agregar_a_rutina: list[str] = Field(default_factory=list, max_length=100)
 
 
 class SerieGuardada(BaseModel):
@@ -334,7 +338,7 @@ class RegistroPeso(BaseModel):
 
 
 class CrearRegistroPesoRequest(BaseModel):
-    kg: float
+    kg: float = Field(ge=0, le=1_000)
 
 
 class SerieExportable(BaseModel):

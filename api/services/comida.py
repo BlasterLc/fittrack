@@ -1,12 +1,17 @@
+import base64
 import json
+import logging
 from typing import NamedTuple
 
 import anthropic
+import httpx
 from fastapi import HTTPException
 
 from api.config import Config
 from api.schemas import ItemComida
 from api.services.catalog import normalizar
+
+logger = logging.getLogger(__name__)
 
 _client: anthropic.Anthropic | None = None
 
@@ -38,11 +43,34 @@ def _etiqueta_canonica(cruda) -> str | None:
     return _ETIQUETAS.get(normalizar(cruda))
 
 
+def _tipo_imagen(imagen_base64: str) -> str:
+    """Tipo MIME según los primeros bytes; 422 si no es un formato soportado."""
+    try:
+        cabecera = base64.b64decode(imagen_base64[:32] + "=" * (-len(imagen_base64[:32]) % 4))
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Imagen inválida")
+    if cabecera.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if cabecera.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if cabecera.startswith(b"GIF8"):
+        return "image/gif"
+    if cabecera[:4] == b"RIFF" and cabecera[8:12] == b"WEBP":
+        return "image/webp"
+    raise HTTPException(status_code=422, detail="Formato de imagen no soportado")
+
+
 def _get_client() -> anthropic.Anthropic:
     """Inicializa el cliente de Anthropic una sola vez (lazy)."""
     global _client
     if _client is None:
-        _client = anthropic.Anthropic(api_key=Config().anthropic_api_key)
+        # Timeout corto y un solo reintento: el endpoint es síncrono y cada
+        # llamada colgada ocupa un hilo del threadpool compartido con toda la API.
+        _client = anthropic.Anthropic(
+            api_key=Config().anthropic_api_key,
+            timeout=httpx.Timeout(25.0, connect=5.0),
+            max_retries=1,
+        )
     return _client
 
 
@@ -72,7 +100,7 @@ def analizar(texto: str | None = None, imagen_base64: str | None = None) -> Anal
                 "type": "image",
                 "source": {
                     "type": "base64",
-                    "media_type": "image/jpeg",
+                    "media_type": _tipo_imagen(imagen_base64),
                     "data": imagen_base64,
                 },
             }
@@ -89,17 +117,22 @@ def analizar(texto: str | None = None, imagen_base64: str | None = None) -> Anal
             messages=[{"role": "user", "content": contenido}],
         )
     except anthropic.AuthenticationError:
-        raise HTTPException(status_code=502, detail="La API key de Anthropic es inválida.")
+        logger.error("Anthropic rechazó la API key")
+        raise HTTPException(status_code=502, detail="El análisis no está disponible por ahora.")
     except anthropic.BadRequestError as e:
         mensaje = str(e)
         if "credit balance" in mensaje or "too low" in mensaje:
+            logger.error("Anthropic sin créditos")
             raise HTTPException(
-                status_code=402,
-                detail="Sin créditos en Anthropic. Carga saldo en console.anthropic.com.",
+                status_code=503, detail="El análisis no está disponible por ahora."
             )
-        raise HTTPException(status_code=400, detail=f"Solicitud rechazada por Anthropic: {e}")
+        logger.warning("Anthropic rechazó la solicitud: %s", e)
+        raise HTTPException(
+            status_code=400, detail="No se pudo analizar la comida. Prueba con otra foto o texto."
+        )
     except anthropic.APIError as e:
-        raise HTTPException(status_code=502, detail=f"Error de la API de IA: {e}")
+        logger.error("Error de la API de IA: %s", e)
+        raise HTTPException(status_code=502, detail="El análisis no está disponible por ahora.")
 
     try:
         crudo = respuesta.content[0].text.strip()
@@ -108,8 +141,11 @@ def analizar(texto: str | None = None, imagen_base64: str | None = None) -> Anal
             if crudo.startswith("json"):
                 crudo = crudo[4:]
         datos = json.loads(crudo.strip())
+        if not isinstance(datos["items"], list) or len(datos["items"]) > 50:
+            raise ValueError("items inválido")
         items = [ItemComida(**item) for item in datos["items"]]
-    except (json.JSONDecodeError, KeyError, TypeError, IndexError) as e:
-        raise HTTPException(status_code=502, detail=f"Respuesta inválida de Claude: {e}")
+    except (json.JSONDecodeError, KeyError, TypeError, IndexError, AttributeError, ValueError) as e:
+        logger.warning("Respuesta inválida de Claude: %s", e)
+        raise HTTPException(status_code=502, detail="No se pudo interpretar el análisis.")
 
     return AnalisisComida(items=items, etiqueta=_etiqueta_canonica(datos.get("etiqueta")))

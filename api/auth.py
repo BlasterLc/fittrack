@@ -51,6 +51,7 @@ def get_current_user(
                 config.supabase_jwt_secret,
                 algorithms=["HS256"],
                 audience="authenticated",
+                options={"require": ["exp", "sub"]},
             )
         else:
             jwks_url = f"{config.supabase_url}/auth/v1/.well-known/jwks.json"
@@ -60,6 +61,8 @@ def get_current_user(
                 llave.key,
                 algorithms=["ES256", "RS256"],
                 audience="authenticated",
+                issuer=f"{config.supabase_url.rstrip('/')}/auth/v1",
+                options={"require": ["exp", "sub"]},
             )
     except jwt.PyJWTError:
         raise no_autenticado

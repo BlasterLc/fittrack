@@ -7,7 +7,15 @@ from fastapi.responses import HTMLResponse
 from api.auth import get_current_user
 from api.routers import catalog, dashboard, entrenamientos, food, perfil, peso, progreso, routines
 
-app = FastAPI(title="FitTrack API")
+# /docs, /redoc y /openapi.json solo con ENABLE_DOCS=1 (local); en producción
+# no se publican para no regalar el mapa completo de la API.
+_docs = os.getenv("ENABLE_DOCS") == "1"
+app = FastAPI(
+    title="FitTrack API",
+    docs_url="/docs" if _docs else None,
+    redoc_url="/redoc" if _docs else None,
+    openapi_url="/openapi.json" if _docs else None,
+)
 
 # WEB_ORIGIN se lee aparte de Config (que exige DATABASE_URL/SUPABASE_URL/etc.
 # para instanciarse) porque el middleware se registra al importar el modulo,
@@ -22,9 +30,66 @@ if _web_origin:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[_web_origin],
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type"],
     )
+# Tope de cuerpo: FastAPI lee y parsea todo el JSON antes de autenticar y de
+# aplicar los max_length de pydantic, así que el límite va antes, en ASGI.
+MAX_BODY_BYTES = 8 * 1024 * 1024
+
+
+class LimiteCuerpo:
+    def __init__(self, app, maximo: int = MAX_BODY_BYTES) -> None:
+        self.app = app
+        self.maximo = maximo
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        largo = dict(scope["headers"]).get(b"content-length")
+        if largo is not None and largo.isdigit() and int(largo) > self.maximo:
+            await self._rechazar(send)
+            return
+
+        recibidos = 0
+
+        async def limitado():
+            nonlocal recibidos
+            mensaje = await receive()
+            if mensaje["type"] == "http.request":
+                recibidos += len(mensaje.get("body", b""))
+                if recibidos > self.maximo:
+                    raise _CuerpoExcedido()
+            return mensaje
+
+        try:
+            await self.app(scope, limitado, send)
+        except _CuerpoExcedido:
+            await self._rechazar(send)
+
+    @staticmethod
+    async def _rechazar(send) -> None:
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 413,
+                "headers": [(b"content-type", b"application/json")],
+            }
+        )
+        await send(
+            {
+                "type": "http.response.body",
+                "body": b'{"detail":"Cuerpo demasiado grande"}',
+            }
+        )
+
+
+class _CuerpoExcedido(Exception):
+    pass
+
+
+app.add_middleware(LimiteCuerpo)
 app.include_router(catalog.router)
 app.include_router(dashboard.router)
 app.include_router(entrenamientos.router)

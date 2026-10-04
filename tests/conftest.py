@@ -91,3 +91,10 @@ def auth_headers():
         algorithm="HS256",
     )
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture(autouse=True)
+def reiniciar_ratelimit():
+    from api.services import ratelimit
+
+    ratelimit.reiniciar()

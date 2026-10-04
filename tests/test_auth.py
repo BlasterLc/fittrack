@@ -78,8 +78,14 @@ def test_me_con_token_es256_real(client, monkeypatch):
 
     clave_privada = ec.generate_private_key(ec.SECP256R1())
     ahora = datetime.datetime.now(datetime.timezone.utc)
+    emisor = os.environ["SUPABASE_URL"].rstrip("/") + "/auth/v1"
     token = jwt.encode(
-        {"sub": UUID_PRUEBA, "aud": "authenticated", "exp": ahora + datetime.timedelta(hours=1)},
+        {
+            "sub": UUID_PRUEBA,
+            "aud": "authenticated",
+            "iss": emisor,
+            "exp": ahora + datetime.timedelta(hours=1),
+        },
         clave_privada,
         algorithm="ES256",
         headers={"kid": "prueba-kid"},
@@ -97,3 +103,34 @@ def test_me_con_token_es256_real(client, monkeypatch):
     respuesta = client.get("/api/me", headers={"Authorization": f"Bearer {token}"})
     assert respuesta.status_code == 200
     assert respuesta.json() == {"user_id": UUID_PRUEBA}
+
+
+def test_me_con_token_es256_de_otro_emisor_da_401(client, monkeypatch):
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    import api.auth as auth_mod
+
+    clave_privada = ec.generate_private_key(ec.SECP256R1())
+    ahora = datetime.datetime.now(datetime.timezone.utc)
+    token = jwt.encode(
+        {
+            "sub": UUID_PRUEBA,
+            "aud": "authenticated",
+            "iss": "https://otro.supabase.co/auth/v1",
+            "exp": ahora + datetime.timedelta(hours=1),
+        },
+        clave_privada,
+        algorithm="ES256",
+        headers={"kid": "k"},
+    )
+
+    class _Llave:
+        key = clave_privada.public_key()
+
+    class _Jwks:
+        def get_signing_key_from_jwt(self, _token):
+            return _Llave()
+
+    monkeypatch.setattr(auth_mod, "_get_jwks_client", lambda _url: _Jwks())
+    r = client.get("/api/me", headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 401

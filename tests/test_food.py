@@ -269,3 +269,109 @@ def test_patch_con_logged_at_de_mas_de_7_dias_da_422(client, auth_headers):
         headers=auth_headers,
     )
     assert r.status_code == 422
+
+
+def test_analyze_limita_llamadas_por_usuario(client, auth_headers, monkeypatch):
+    import api.services.comida as comida
+    from api.schemas import ItemComida
+    from api.services import ratelimit
+
+    monkeypatch.setattr(
+        comida,
+        "analizar",
+        lambda texto=None, imagen_base64=None: comida.AnalisisComida(
+            items=[ItemComida(**_ITEMS[0])], etiqueta=None
+        ),
+    )
+    maximo = ratelimit.LIMITES_ANALISIS[0][0]
+    for _ in range(maximo):
+        r = client.post("/api/food/analyze", json={"texto": "avena"}, headers=auth_headers)
+        assert r.status_code == 200
+    r = client.post("/api/food/analyze", json={"texto": "avena"}, headers=auth_headers)
+    assert r.status_code == 429
+
+
+def test_analyze_rechaza_imagen_gigante_y_texto_largo(client, auth_headers):
+    r = client.post(
+        "/api/food/analyze", json={"imagen_base64": "A" * 7_000_001}, headers=auth_headers
+    )
+    assert r.status_code == 422
+    r = client.post("/api/food/analyze", json={"texto": "x" * 1_001}, headers=auth_headers)
+    assert r.status_code == 422
+
+
+def test_tipo_imagen_detecta_formato_y_rechaza_otros():
+    import base64
+
+    import pytest
+    from fastapi import HTTPException
+
+    from api.services.comida import _tipo_imagen
+
+    assert _tipo_imagen(base64.b64encode(b"\xff\xd8\xff\xe0" + b"0" * 20).decode()) == "image/jpeg"
+    assert _tipo_imagen(base64.b64encode(b"\x89PNG\r\n\x1a\n" + b"0" * 20).decode()) == "image/png"
+    with pytest.raises(HTTPException):
+        _tipo_imagen(base64.b64encode(b"<html>" + b"0" * 20).decode())
+
+
+def test_log_rechaza_calorias_negativas(client, auth_headers):
+    item = {**_ITEMS[0], "calorias": -5}
+    r = client.post("/api/food/log", json={"items": [item]}, headers=auth_headers)
+    assert r.status_code == 422
+
+
+def test_docs_no_se_publican_por_defecto(client):
+    assert client.get("/docs").status_code == 404
+    assert client.get("/openapi.json").status_code == 404
+
+
+def test_analyze_respuesta_de_claude_fuera_de_rango_da_502(client, auth_headers, monkeypatch):
+    import api.services.comida as comida
+
+    class _Bloque:
+        text = '{"items": [{"nombre": "x", "calorias": 99999, "prot_g": 1, "carbs_g": 1, "fat_g": 1}]}'
+
+    class _Resp:
+        content = [_Bloque()]
+
+    class _Cliente:
+        class messages:
+            @staticmethod
+            def create(**_):
+                return _Resp()
+
+    monkeypatch.setattr(comida, "_get_client", lambda: _Cliente())
+    r = client.post("/api/food/analyze", json={"texto": "avena"}, headers=auth_headers)
+    assert r.status_code == 502
+
+
+def test_cotas_de_schemas_caben_en_las_columnas():
+    from sqlalchemy import String
+
+    from api import models, schemas
+
+    pares = [
+        (schemas.ItemComida, "nombre", models.MealItem.nombre),
+        (schemas.RegistrarComidaRequest, "etiqueta", models.Meal.etiqueta),
+        (schemas.GuardarRutinaRequest, "nombre", models.Routine.nombre),
+        (schemas.GuardarEntrenamientoRequest, "client_id", models.Workout.client_id),
+        (schemas.GuardarPerfilRequest, "nombre", models.UserProfile.nombre)
+        if hasattr(models, "UserProfile")
+        else None,
+    ]
+    for par in filter(None, pares):
+        modelo, campo, columna = par
+        maximo = next(
+            m.max_length for m in modelo.model_fields[campo].metadata if hasattr(m, "max_length")
+        )
+        assert isinstance(columna.type, String)
+        assert maximo <= columna.type.length, (modelo.__name__, campo)
+
+
+def test_cuerpo_demasiado_grande_da_413_sin_autenticar(client):
+    r = client.post(
+        "/api/food/analyze",
+        content=b"x" * (8 * 1024 * 1024 + 1),
+        headers={"Content-Type": "application/json"},
+    )
+    assert r.status_code == 413

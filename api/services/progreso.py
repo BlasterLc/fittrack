@@ -8,7 +8,7 @@ por día, semana y mes vive entera en el cliente, que es el único que conoce el
 huso del usuario.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session, selectinload
@@ -25,13 +25,18 @@ from api.models import (
 from api.services import perfil as servicio_perfil
 
 
+MAX_VENTANA_DIAS = 400
+
+
 class VentanaInvalida(ValueError):
-    """`desde` posterior a `hasta`."""
+    """`desde` posterior a `hasta`, o ventana mayor al máximo."""
 
 
 def _validar(desde: datetime, hasta: datetime) -> None:
     if desde > hasta:
         raise VentanaInvalida("La ventana empieza después de terminar")
+    if hasta - desde > timedelta(days=MAX_VENTANA_DIAS):
+        raise VentanaInvalida(f"La ventana no puede superar {MAX_VENTANA_DIAS} días")
 
 
 def mapa(sesion: Session, user_id: str, desde: datetime, hasta: datetime) -> list[dict]:
