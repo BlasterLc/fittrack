@@ -118,7 +118,7 @@ tests/     Pruebas del backend (pytest).
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 cp .env.example .env        # completar los valores
 uvicorn api.main:app --reload
 ```

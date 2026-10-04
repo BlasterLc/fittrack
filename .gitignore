@@ -43,3 +43,6 @@ Thumbs.db
 .idea/
 .vscode/
 brag-output/
+
+# Config local de Claude Code
+.claude/
