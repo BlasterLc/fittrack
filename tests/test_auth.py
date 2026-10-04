@@ -134,3 +134,9 @@ def test_me_con_token_es256_de_otro_emisor_da_401(client, monkeypatch):
     monkeypatch.setattr(auth_mod, "_get_jwks_client", lambda _url: _Jwks())
     r = client.get("/api/me", headers={"Authorization": f"Bearer {token}"})
     assert r.status_code == 401
+
+
+def test_hs256_se_rechaza_sin_la_bandera_de_pruebas(client, monkeypatch):
+    monkeypatch.delenv("ALLOW_HS256_TESTS")
+    respuesta = client.get("/api/me", headers={"Authorization": f"Bearer {_token()}"})
+    assert respuesta.status_code == 401

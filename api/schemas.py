@@ -137,8 +137,15 @@ class RegistrarComidaRequest(BaseModel):
     logged_at: datetime | None = None
 
 
-class ItemComidaOut(ItemComida):
+class ItemComidaOut(BaseModel):
+    # Sin las cotas de ItemComida a propósito: esas validan lo que se escribe.
+    # Al leer, una comida guardada antes de las cotas no debe romper el historial.
     id: int
+    nombre: str
+    calorias: int
+    prot_g: float
+    carbs_g: float
+    fat_g: float
     model_config = {"from_attributes": True}
 
 

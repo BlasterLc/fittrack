@@ -97,6 +97,29 @@ def test_historial_filtra_por_rango_y_usuario(client, auth_headers, db_session):
     assert cuerpo[0]["items"][0]["nombre"] == "X"
 
 
+def test_historial_lee_comidas_antiguas_fuera_de_las_cotas_de_entrada(
+    client, auth_headers, db_session
+):
+    """Las cotas validan lo que se escribe, no lo que ya está guardado: una
+    comida anterior a esas cotas no puede romper el historial de la cuenta."""
+    import datetime as dt
+    from urllib.parse import quote
+
+    from api.models import Meal, MealItem
+
+    ahora = dt.datetime.now(dt.timezone.utc)
+    m = Meal(user_id=UUID_PRUEBA, logged_at=ahora - dt.timedelta(hours=1))
+    m.items = [MealItem(nombre="Antigua", calorias=12_000, prot_g=1_500, carbs_g=1_200, fat_g=1_100)]
+    db_session.add(m)
+    db_session.commit()
+
+    desde = quote((ahora - dt.timedelta(days=1)).isoformat())
+    hasta = quote((ahora + dt.timedelta(days=1)).isoformat())
+    r = client.get(f"/api/food?desde={desde}&hasta={hasta}", headers=auth_headers)
+    assert r.status_code == 200
+    assert r.json()[0]["items"][0]["calorias"] == 12_000
+
+
 def test_historial_sin_token_da_401(client):
     import datetime as dt
     from urllib.parse import quote

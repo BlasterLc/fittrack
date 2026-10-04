@@ -29,8 +29,9 @@ def get_current_user(
 
     - **ES256/RS256 (asimétrica):** es como firma Supabase los tokens reales.
       Se valida contra las llaves públicas publicadas en el JWKS del proyecto.
-    - **HS256 (secreto compartido):** solo lo usan los tokens de prueba, que
-      se firman con `SUPABASE_JWT_SECRET` sin tocar la red.
+    - **HS256 (secreto compartido):** solo con `ALLOW_HS256_TESTS=1` (tests);
+      en producción se rechaza. Los tokens de prueba se firman con
+      `SUPABASE_JWT_SECRET` sin tocar la red.
 
     En ambos casos comprueba la firma, la audiencia y la expiración, y
     devuelve el claim `sub`. No consulta ninguna tabla de usuarios: no existe.
@@ -46,6 +47,10 @@ def get_current_user(
     try:
         algoritmo = jwt.get_unverified_header(token).get("alg")
         if algoritmo == "HS256":
+            # Rama solo de pruebas: en producción un secreto filtrado o débil
+            # permitiría forjar cualquier identidad, así que está apagada.
+            if not (config.allow_hs256_tests and config.supabase_jwt_secret):
+                raise no_autenticado
             datos = jwt.decode(
                 token,
                 config.supabase_jwt_secret,

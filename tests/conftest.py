@@ -12,6 +12,7 @@ load_dotenv()
 os.environ["DATABASE_URL"] = os.environ["TEST_DATABASE_URL"]
 os.environ.setdefault("SUPABASE_URL", "https://demo.supabase.co")
 os.environ.setdefault("SUPABASE_JWT_SECRET", "secreto-de-prueba")
+os.environ["ALLOW_HS256_TESTS"] = "1"
 os.environ.setdefault("SUPABASE_STORAGE_BUCKET", "exercise-gifs")
 
 from api.database import Base, get_db  # noqa: E402  (debe importarse tras fijar el entorno)
