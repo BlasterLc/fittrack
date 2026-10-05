@@ -111,7 +111,7 @@ def test_el_dashboard_muestra_el_entrenamiento_de_hoy(client, db_session, auth_h
     import datetime as dt
 
     sembrar_catalogo(db_session)
-    ahora = dt.datetime.now(dt.timezone.utc)
+    ahora = _anclar_en_el_dia_utc(dt.datetime.now(dt.timezone.utc))
     entrenamiento = Workout(
         user_id="11111111-1111-1111-1111-111111111111",
         client_id="hoy",
@@ -154,6 +154,33 @@ def _crear_rutina(db_session, user_id, nombre, archivada=False):
     return rutina
 
 
+def _anclar_en_el_dia_utc(ahora, margen_min=60):
+    """`ahora`, o la hora más temprana que deja `margen_min` minutos dentro del día UTC.
+
+    Sin ventana, `/api/dashboard` mira el día UTC y filtra por `started_at`.
+    Un entrenamiento creado "hace 45 minutos" caía en el día anterior si la
+    prueba corría en los primeros minutos después de medianoche UTC, y la
+    prueba fallaba solo a esa hora (en CI a las 00:05 UTC). Anclar la hora
+    evita que el resultado dependa de cuándo se ejecute.
+    """
+    import datetime as dt
+
+    medianoche = ahora.replace(hour=0, minute=0, second=0, microsecond=0)
+    return max(ahora, medianoche + dt.timedelta(minutes=margen_min))
+
+
+def test_anclar_en_el_dia_utc_solo_mueve_la_hora_cuando_hace_falta():
+    import datetime as dt
+
+    utc = dt.timezone.utc
+    justo_despues_de_medianoche = dt.datetime(2026, 10, 5, 0, 5, tzinfo=utc)
+    assert _anclar_en_el_dia_utc(justo_despues_de_medianoche) == dt.datetime(
+        2026, 10, 5, 1, 0, tzinfo=utc
+    )
+    mediodia = dt.datetime(2026, 10, 5, 12, 0, tzinfo=utc)
+    assert _anclar_en_el_dia_utc(mediodia) == mediodia
+
+
 def _crear_entrenamiento(db_session, user_id, client_id, dias_atras=0, routine_id=None):
     """Un entrenamiento de 30 minutos con una serie, para las pruebas de
     aislamiento del resumen diario."""
@@ -161,7 +188,7 @@ def _crear_entrenamiento(db_session, user_id, client_id, dias_atras=0, routine_i
 
     from api.models import Workout, WorkoutExercise, WorkoutSet
 
-    fin = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=dias_atras)
+    fin = _anclar_en_el_dia_utc(dt.datetime.now(dt.timezone.utc)) - dt.timedelta(days=dias_atras)
     entrenamiento = Workout(
         user_id=user_id,
         client_id=client_id,
