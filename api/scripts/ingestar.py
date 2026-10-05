@@ -159,7 +159,7 @@ def main() -> int:
             print(
                 f"Abortado: la ingesta dejaría {len(filas_previstas)} fichas, "
                 f"hay {existentes} en la base — es una reducción sospechosa. "
-                "Si es intencional, corré de nuevo con --forzar."
+                "Si es intencional, corre de nuevo con --forzar."
             )
             return 1
 

@@ -84,7 +84,7 @@ def main() -> int:
 
     archivos = sorted(origen.glob("*.gif"))
     if not archivos:
-        print(f"No hay animaciones en {origen}. Corré primero api.scripts.descargar.")
+        print(f"No hay animaciones en {origen}. Corre primero api.scripts.descargar.")
         return 1
 
     with _cliente(config) as cliente:
