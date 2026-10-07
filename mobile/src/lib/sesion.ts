@@ -35,6 +35,10 @@ export type EjercicioBorrador = {
   // columna «Previa» de la tabla y los valores con que nacen las filas.
   repsDefault: number | null;
   kgDefault: number | null;
+  // Las series de esa última vez, una por una: cada fila de «Previa» muestra la
+  // suya y no la misma en todas. Opcional porque los borradores abiertos antes
+  // de este campo no lo traen; ahí la tabla cae a `repsDefault`/`kgDefault`.
+  seriesPrevias?: { reps: number; kg: number }[];
   series: SerieBorrador[];
 };
 

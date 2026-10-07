@@ -5,7 +5,14 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from api.models import CatalogExercise, Routine, RoutineExercise
+from api.models import (
+    CatalogExercise,
+    Routine,
+    RoutineExercise,
+    Workout,
+    WorkoutExercise,
+    WorkoutSet,
+)
 
 
 class RutinaInvalida(ValueError):
@@ -119,6 +126,44 @@ def obtener(
     return sesion.execute(consulta).scalar_one_or_none()
 
 
+def _series_previas(
+    sesion: Session, user_id: str, ids: list[str]
+) -> dict[str, list[dict]]:
+    """Las series de la última vez que se hizo cada ejercicio, una por una.
+
+    Alimenta la columna «Previa» de la sesión. Sale del historial y no de
+    `reps_default`/`weight_default`: esos guardan solo la PRIMERA serie, así que
+    de ahí cada fila mostraría lo mismo en vez de lo que se hizo en ella.
+    """
+    if not ids:
+        return {}
+    # Del más reciente al más viejo: la primera aparición de cada ejercicio es
+    # la de su última sesión. Cualquier entrenamiento vale, no solo los de esta
+    # rutina: «previa» es la última vez que hiciste ese ejercicio.
+    filas = sesion.execute(
+        select(WorkoutExercise.catalog_id, WorkoutExercise.id)
+        .join(Workout, Workout.id == WorkoutExercise.workout_id)
+        .where(Workout.user_id == user_id, WorkoutExercise.catalog_id.in_(ids))
+        .order_by(Workout.started_at.desc(), WorkoutExercise.id.desc())
+    ).all()
+    ultimo: dict[str, int] = {}
+    for catalog_id, ejercicio_id in filas:
+        ultimo.setdefault(catalog_id, ejercicio_id)
+    if not ultimo:
+        return {}
+
+    por_ejercicio: dict[int, list[dict]] = {}
+    for ejercicio_id, reps, kg in sesion.execute(
+        select(WorkoutSet.workout_exercise_id, WorkoutSet.reps, WorkoutSet.weight_kg)
+        .where(WorkoutSet.workout_exercise_id.in_(ultimo.values()))
+        .order_by(WorkoutSet.workout_exercise_id, WorkoutSet.orden)
+    ):
+        por_ejercicio.setdefault(ejercicio_id, []).append(
+            {"reps": reps, "weight_kg": kg}
+        )
+    return {c: por_ejercicio.get(e, []) for c, e in ultimo.items()}
+
+
 def detalle(sesion: Session, user_id: str, rutina_id: int) -> dict | None:
     rutina = obtener(sesion, user_id, rutina_id)
     if rutina is None:
@@ -135,6 +180,7 @@ def detalle(sesion: Session, user_id: str, rutina_id: int) -> dict | None:
     # viaja con lo que se hizo la última vez, que es de donde salen los valores
     # iniciales de las ruedas de la sesión.
     por_catalogo = {e.catalog_id: e for e in rutina.ejercicios}
+    previas = _series_previas(sesion, user_id, ids)
     encontrados = [
         {
             "id": ficha.id,
@@ -147,6 +193,7 @@ def detalle(sesion: Session, user_id: str, rutina_id: int) -> dict | None:
             "sets_default": por_catalogo[c].sets_default,
             "reps_default": por_catalogo[c].reps_default,
             "weight_default": por_catalogo[c].weight_default,
+            "series_previas": previas.get(c, []),
         }
         for c in ids
         if (ficha := fichas.get(c)) is not None

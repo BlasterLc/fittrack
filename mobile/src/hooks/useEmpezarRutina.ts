@@ -62,6 +62,10 @@ export function useEmpezarRutina() {
           agregado: false,
           repsDefault: e.reps_default,
           kgDefault: e.weight_default,
+          seriesPrevias: (e.series_previas ?? []).map((s) => ({
+            reps: s.reps,
+            kg: s.weight_kg,
+          })),
           series: Array.from({ length: Math.max(1, e.sets_default ?? 1) }, () => ({
             reps: valorInicial(e.reps_default, 'reps'),
             kg: valorInicial(e.weight_default, 'kg'),

@@ -14,6 +14,7 @@ export type EjercicioDeRutina = EjercicioResumen & {
   sets_default: number | null;
   reps_default: number | null;
   weight_default: number | null;
+  series_previas: { reps: number; weight_kg: number }[];
 };
 
 export type RutinaDetalle = {

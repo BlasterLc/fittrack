@@ -27,10 +27,19 @@ export function TablaSeries({
   ejercicio: EjercicioBorrador;
   onCambiar: (series: SerieBorrador[]) => void;
 }) {
-  const previa =
-    ejercicio.repsDefault !== null && ejercicio.kgDefault !== null
-      ? `${formatoKg(ejercicio.kgDefault)}×${ejercicio.repsDefault}`
-      : '—';
+  // Cada fila muestra la serie que le corresponde de la última vez; si hoy hay
+  // más series que entonces, las de más quedan en «—».
+  function textoPrevia(indice: number): string {
+    const previas = ejercicio.seriesPrevias;
+    if (previas === undefined) {
+      // Borrador viejo, sin el detalle por serie: queda el único valor que tenía.
+      return ejercicio.repsDefault !== null && ejercicio.kgDefault !== null
+        ? `${formatoKg(ejercicio.kgDefault)}×${ejercicio.repsDefault}`
+        : '—';
+    }
+    const serie = previas[indice];
+    return serie ? `${formatoKg(serie.kg)}×${serie.reps}` : '—';
+  }
 
   function editar(indice: number, cambio: Partial<SerieBorrador>) {
     onCambiar(ejercicio.series.map((s, i) => (i === indice ? { ...s, ...cambio } : s)));
@@ -91,7 +100,7 @@ export function TablaSeries({
           // y no hay identidad estable por serie que preservar.
           key={i}
           numero={i + 1}
-          previa={previa}
+          previa={textoPrevia(i)}
           serie={serie}
           onEditar={(cambio) => editar(i, cambio)}
           onAlternar={() => alternarHecha(i)}

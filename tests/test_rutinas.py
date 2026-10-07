@@ -515,3 +515,67 @@ def test_listar_no_mezcla_los_datos_de_dos_rutinas(catalogo):
     assert filas["Con dos de pecho"]["grupos_musculares"] == ["Pecho"]
     assert filas["Variada"]["total_ejercicios"] == 2
     assert filas["Variada"]["grupos_musculares"] == ["Brazos", "Hombros"]
+
+
+def _entrenar(sesion, user_id, inicio, series, catalog_id="0025"):
+    """Un entrenamiento con un ejercicio y las series dadas como (reps, kg)."""
+    import uuid
+    from datetime import timedelta
+
+    from api.models import Workout, WorkoutExercise, WorkoutSet
+
+    w = Workout(
+        user_id=user_id,
+        client_id=str(uuid.uuid4()),
+        started_at=inicio,
+        ended_at=inicio + timedelta(minutes=30),
+    )
+    w.ejercicios = [
+        WorkoutExercise(
+            catalog_id=catalog_id,
+            orden=0,
+            series=[
+                WorkoutSet(orden=i, reps=r, weight_kg=kg, completed_at=inicio)
+                for i, (r, kg) in enumerate(series)
+            ],
+        )
+    ]
+    sesion.add(w)
+    sesion.commit()
+
+
+def test_el_detalle_trae_las_series_de_la_ultima_sesion_una_por_una(catalogo):
+    from datetime import datetime, timezone
+
+    rutina = sembrar_rutina(catalogo)
+    # Una sesión vieja distinta, para probar que gana la más reciente.
+    _entrenar(catalogo, USUARIO, datetime(2026, 9, 1, tzinfo=timezone.utc), [(10, 40.0)])
+    _entrenar(
+        catalogo, USUARIO, datetime(2026, 9, 8, tzinfo=timezone.utc),
+        [(7, 55.0), (7, 50.0), (6, 45.0)],
+    )
+
+    detalle = servicio.detalle(catalogo, USUARIO, rutina.id)
+
+    assert detalle["ejercicios"][0]["series_previas"] == [
+        {"reps": 7, "weight_kg": 55.0},
+        {"reps": 7, "weight_kg": 50.0},
+        {"reps": 6, "weight_kg": 45.0},
+    ]
+
+
+def test_las_series_previas_no_mezclan_a_otro_usuario(catalogo):
+    from datetime import datetime, timezone
+
+    rutina = sembrar_rutina(catalogo)
+    _entrenar(catalogo, OTRO_USUARIO, datetime(2026, 9, 8, tzinfo=timezone.utc), [(7, 55.0)])
+
+    detalle = servicio.detalle(catalogo, USUARIO, rutina.id)
+
+    assert detalle["ejercicios"][0]["series_previas"] == []
+
+
+def test_un_ejercicio_nunca_entrenado_no_trae_series_previas(client, catalogo, auth_headers):
+    rutina = sembrar_rutina(catalogo)
+    cuerpo = client.get(f"/api/routines/{rutina.id}", headers=auth_headers).json()
+    assert cuerpo["ejercicios"][0]["series_previas"] == []

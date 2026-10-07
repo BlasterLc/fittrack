@@ -32,6 +32,11 @@ class EjercicioFicha(EjercicioResumen):
     atribucion: str
 
 
+class SeriePrevia(BaseModel):
+    reps: int
+    weight_kg: float
+
+
 class EjercicioDeRutina(EjercicioResumen):
     """Ficha del catálogo más lo que hiciste la última vez en esta rutina.
 
@@ -42,6 +47,9 @@ class EjercicioDeRutina(EjercicioResumen):
     sets_default: int | None = None
     reps_default: int | None = None
     weight_default: float | None = None
+    # Las series de la última sesión donde se hizo, en orden: la columna
+    # «Previa» de la sesión. Vacía si nunca se hizo.
+    series_previas: list[SeriePrevia] = []
 
 
 class ResultadoBusqueda(BaseModel):
